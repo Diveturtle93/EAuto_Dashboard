@@ -7,41 +7,40 @@ Install dependencies:
   pip install dash plotly python-can
 
 Run:
-  python eauto_dashboard.py [interface] [channel]
-  # defaults: interface=pcan, channel=PCAN_USBBUS1
+  python eauto_dashboard.py [interface] [channel] [bitrate]
+  # The arguments pre-fill the CAN config card in the browser; the adapter
+  # is connected only after clicking "Verbinden" in the UI.
   # examples:
-  #   python eauto_dashboard.py pcan PCAN_USBBUS1
-  #   python eauto_dashboard.py vector 0
-  #   python eauto_dashboard.py kvaser 0
-  #   python eauto_dashboard.py slcan COM3
+  #   python eauto_dashboard.py pcan PCAN_USBBUS1 500000
+  #   python eauto_dashboard.py vector 0 500000
+  #   python eauto_dashboard.py slcan COM3 500000
   open http://localhost:8052
 """
 
 import sys
 import threading
-import time
-from datetime import datetime
 
 from dash import Dash, dcc, html
 
-from backend.can_bus import CanConfig, start_can_rx_thread
+from backend.can_bus import can_manager
 from ui.callbacks import (
     register_snapshot_callback,
     register_reset_callback,
     register_can_banner_callback,
+    register_can_config_callback,
     register_export_csv_callback,
     register_status_callback,
 )
-from ui.controls import build_time_window_controls, build_firmware_upload_card
+from ui.controls import build_time_window_controls, build_firmware_upload_card, build_can_config_card
 
 # ═══════════════════════════════════════════════════════════════════════════════
-#  CONFIG
+#  CONFIG  (command-line args → pre-fill UI defaults only, no auto-connect)
 # ═══════════════════════════════════════════════════════════════════════════════
 
-CAN_INTERFACE = sys.argv[1] if len(sys.argv) > 1 else "pcan"
-CAN_CHANNEL   = sys.argv[2] if len(sys.argv) > 2 else "PCAN_USBBUS1"
-CAN_BITRATE   = int(sys.argv[3]) if len(sys.argv) > 3 else 500000
-INTERVAL      = 500         # ms dashboard refresh
+DEFAULT_INTERFACE = sys.argv[1] if len(sys.argv) > 1 else "pcan"
+DEFAULT_CHANNEL   = sys.argv[2] if len(sys.argv) > 2 else "PCAN_USBBUS1"
+DEFAULT_BITRATE   = int(sys.argv[3]) if len(sys.argv) > 3 else 500000
+INTERVAL          = 500         # ms dashboard refresh
 
 # ═══════════════════════════════════════════════════════════════════════════════
 #  DATA STORE
@@ -56,13 +55,6 @@ latest = dict(
     motor_status_code=None,
     motor_state="Unknown",
 )
-# ═══════════════════════════════════════════════════════════════════════════════
-
-# ═══════════════════════════════════════════════════════════════════════════════
-#  Daten ueber CAN Empfangen
-# ═══════════════════════════════════════════════════════════════════════════════
-CAN_CONFIG = CanConfig(CAN_INTERFACE, CAN_CHANNEL, CAN_BITRATE)
-start_can_rx_thread(CAN_CONFIG, latest, lock)
 # ═══════════════════════════════════════════════════════════════════════════════
 
 # ═══════════════════════════════════════════════════════════════════════════════
@@ -96,14 +88,17 @@ app.layout = html.Div(
             html.H2("EAuto Live Dashboard (Windows)",
                     style={"margin": "0", "fontSize": "20px", "color": "#222",
                            "fontWeight": "700"}),
-            html.Span(f"CAN: {CAN_INTERFACE} / {CAN_CHANNEL} @ {CAN_BITRATE} bps",
+            html.Span("CAN-Adapter wird über das Konfigurationsfeld unten verbunden.",
                       style={"fontSize": "11px", "color": "#888"}),
         ]),
 
-        # ── CAN lost banner (hidden when connected) ────────────────────────────────────────────
+        # ── CAN-Adapter Konfiguration ──────────────────────────────────────────────────
+        build_can_config_card(DEFAULT_INTERFACE, DEFAULT_CHANNEL, DEFAULT_BITRATE),
+
+        # ── CAN lost banner (hidden when connected) ────────────────────────────────────
         html.Div(id="can_banner"),
 
-        # ── Main Grid: Dashboard Controls ────────────────────────────────────────────────
+        # ── Main Grid: Dashboard Controls ─────────────────────────────────────────────
         html.Div(
             style={"display": "grid", "gridTemplateColumns": "1fr", "gap": "14px"},
             children=[
@@ -127,6 +122,7 @@ app.layout = html.Div(
 register_snapshot_callback(app, lock, latest)
 register_reset_callback(app, lock, latest)
 register_can_banner_callback(app)
+register_can_config_callback(app, can_manager, latest, lock)
 register_export_csv_callback(app)
 register_status_callback(app)
 # ═══════════════════════════════════════════════════════════════════════════════
@@ -137,8 +133,8 @@ register_status_callback(app)
 if __name__ == "__main__":
     print("=" * 60)
     print("  EAuto Live Dashboard (Windows)")
-    print("  with Status Monitor")
-    print(f"  CAN: {CAN_INTERFACE} / {CAN_CHANNEL} @ {CAN_BITRATE} bps")
+    print(f"  Standardwerte: {DEFAULT_INTERFACE} / {DEFAULT_CHANNEL} @ {DEFAULT_BITRATE} bps")
+    print(f"  CAN-Adapter bitte im Browser verbinden.")
     print(f"  Dashboard: http://localhost:8052")
     print("=" * 60)
     app.run(host="127.0.0.1", port=8052, debug=False)

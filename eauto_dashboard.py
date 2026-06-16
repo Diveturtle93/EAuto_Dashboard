@@ -84,19 +84,24 @@ app.layout = html.Div(
     children=[
 
         # ── Page title ──────────────────────────────────────────────────────────────────
-        html.Div(style={**_CARD, "marginBottom": "14px"}, children=[
-            html.H2("EAuto Live Dashboard (Windows)",
-                    style={"margin": "0", "fontSize": "20px", "color": "#222",
-                           "fontWeight": "700"}),
-            html.Span("CAN-Adapter wird über das Konfigurationsfeld unten verbunden.",
-                      style={"fontSize": "11px", "color": "#888"}),
-        ]),
+        html.Div(
+            style={**_CARD, "marginBottom": "14px", "display": "flex",
+                   "alignItems": "center", "justifyContent": "space-between",
+                   "flexWrap": "wrap", "gap": "10px"},
+            children=[
+                html.Div([
+                    html.H2("EAuto Live Dashboard (Windows)",
+                            style={"margin": "0", "fontSize": "20px", "color": "#222",
+                                   "fontWeight": "700"}),
+                    html.Span("CAN-Adapter wird über das Konfigurationsfeld unten verbunden.",
+                              style={"fontSize": "11px", "color": "#888"}),
+                ]),
+                html.Div(id="can_status_indicator"),
+            ],
+        ),
 
         # ── CAN-Adapter Konfiguration ──────────────────────────────────────────────────
         build_can_config_card(DEFAULT_INTERFACE, DEFAULT_CHANNEL, DEFAULT_BITRATE),
-
-        # ── CAN lost banner (hidden when connected) ────────────────────────────────────
-        html.Div(id="can_banner"),
 
         # ── Main Grid: Dashboard Controls ─────────────────────────────────────────────
         html.Div(

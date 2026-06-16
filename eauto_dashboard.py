@@ -1,0 +1,145 @@
+"""
+EAuto Live Dashboard  –  eauto_dashboard.py
+Windows-compatible version using python-can for CAN interface support.
+Supports PCAN, Vector, Kvaser, and other Windows CAN adapters.
+
+Install dependencies:
+  pip install dash plotly python-can
+
+Run:
+  python eauto_dashboard.py [interface] [channel]
+  # defaults: interface=pcan, channel=PCAN_USBBUS1
+  # examples:
+  #   python eauto_dashboard.py pcan PCAN_USBBUS1
+  #   python eauto_dashboard.py vector 0
+  #   python eauto_dashboard.py kvaser 0
+  #   python eauto_dashboard.py slcan COM3
+  open http://localhost:8052
+"""
+
+import sys
+import threading
+import time
+from datetime import datetime
+
+from dash import Dash, dcc, html
+
+from backend.can_bus import CanConfig, start_can_rx_thread
+from ui.callbacks import (
+    register_snapshot_callback,
+    register_reset_callback,
+    register_can_banner_callback,
+    register_export_csv_callback,
+    register_status_callback,
+)
+from ui.controls import build_time_window_controls, build_firmware_upload_card
+
+# ═══════════════════════════════════════════════════════════════════════════════
+#  CONFIG
+# ═══════════════════════════════════════════════════════════════════════════════
+
+CAN_INTERFACE = sys.argv[1] if len(sys.argv) > 1 else "pcan"
+CAN_CHANNEL   = sys.argv[2] if len(sys.argv) > 2 else "PCAN_USBBUS1"
+CAN_BITRATE   = int(sys.argv[3]) if len(sys.argv) > 3 else 500000
+INTERVAL      = 500         # ms dashboard refresh
+
+# ═══════════════════════════════════════════════════════════════════════════════
+#  DATA STORE
+# ═══════════════════════════════════════════════════════════════════════════════
+lock   = threading.Lock()
+
+# ── latest snapshot (all fields) ────────────────────────────────────────────
+latest = dict(
+    last_rx_ms=0,
+    bms_status_code=None,
+    bms_state="Unknown",
+    motor_status_code=None,
+    motor_state="Unknown",
+)
+# ═══════════════════════════════════════════════════════════════════════════════
+
+# ═══════════════════════════════════════════════════════════════════════════════
+#  Daten ueber CAN Empfangen
+# ═══════════════════════════════════════════════════════════════════════════════
+CAN_CONFIG = CanConfig(CAN_INTERFACE, CAN_CHANNEL, CAN_BITRATE)
+start_can_rx_thread(CAN_CONFIG, latest, lock)
+# ═══════════════════════════════════════════════════════════════════════════════
+
+# ═══════════════════════════════════════════════════════════════════════════════
+#  LAYOUT BUILDING BLOCKS
+# ═══════════════════════════════════════════════════════════════════════════════
+_CARD = {
+    "background":  "#ffffff",
+    "borderRadius": "10px",
+    "boxShadow":   "0 1px 5px rgba(0,0,0,.10)",
+    "padding":     "12px 14px",
+    "marginBottom": "14px",
+}
+_SEC = {
+    "fontSize": "11px", "fontWeight": "700",
+    "letterSpacing": "0.07em", "color": "#888",
+    "textTransform": "uppercase", "marginBottom": "6px",
+}
+
+# ═══════════════════════════════════════════════════════════════════════════════
+#  Dashboard Layout
+# ═══════════════════════════════════════════════════════════════════════════════
+app = Dash(__name__)
+app.layout = html.Div(
+    style={"fontFamily": "'Inter', 'Segoe UI', sans-serif",
+           "background": "#eef0f4", "minHeight": "100vh", "padding": "14px 24px",
+           "maxWidth": "1300px", "margin": "0 auto"},
+    children=[
+
+        # ── Page title ──────────────────────────────────────────────────────────────────
+        html.Div(style={**_CARD, "marginBottom": "14px"}, children=[
+            html.H2("EAuto Live Dashboard (Windows)",
+                    style={"margin": "0", "fontSize": "20px", "color": "#222",
+                           "fontWeight": "700"}),
+            html.Span(f"CAN: {CAN_INTERFACE} / {CAN_CHANNEL} @ {CAN_BITRATE} bps",
+                      style={"fontSize": "11px", "color": "#888"}),
+        ]),
+
+        # ── CAN lost banner (hidden when connected) ────────────────────────────────────────────
+        html.Div(id="can_banner"),
+
+        # ── Main Grid: Dashboard Controls ────────────────────────────────────────────────
+        html.Div(
+            style={"display": "grid", "gridTemplateColumns": "1fr", "gap": "14px"},
+            children=[
+                build_time_window_controls(),
+                build_firmware_upload_card(),
+            ]
+        ),
+
+        html.Div(id="status", style={"marginTop": "12px"}),
+        dcc.Interval(id="tick", interval=INTERVAL, n_intervals=0),
+        dcc.Store(id="snap", storage_type="memory"),
+        dcc.Download(id="dl"),
+        html.Div(id="reset_dummy", style={"display": "none"}),
+    ],
+)
+# ═══════════════════════════════════════════════════════════════════════════════
+
+# ═══════════════════════════════════════════════════════════════════════════════
+#  SNAPSHOT / CALLBACK REGISTRATION
+# ═══════════════════════════════════════════════════════════════════════════════
+register_snapshot_callback(app, lock, latest)
+register_reset_callback(app, lock, latest)
+register_can_banner_callback(app)
+register_export_csv_callback(app)
+register_status_callback(app)
+# ═══════════════════════════════════════════════════════════════════════════════
+
+# ═══════════════════════════════════════════════════════════════════════════════
+#  Hauptprogramm starten
+# ═══════════════════════════════════════════════════════════════════════════════
+if __name__ == "__main__":
+    print("=" * 60)
+    print("  EAuto Live Dashboard (Windows)")
+    print("  with Status Monitor")
+    print(f"  CAN: {CAN_INTERFACE} / {CAN_CHANNEL} @ {CAN_BITRATE} bps")
+    print(f"  Dashboard: http://localhost:8052")
+    print("=" * 60)
+    app.run(host="127.0.0.1", port=8052, debug=False)
+# ═══════════════════════════════════════════════════════════════════════════════

@@ -1,35 +1,42 @@
-import time as _time
-
-# Suppress the "no data" banner for this many seconds after startup,
-# so the interface has time to connect before alarming the user.
-_STARTUP_GRACE_S = 5.0
-_START_TIME = _time.monotonic()
+from dash import html
 
 
-def format_can_banner(snap):
-    hidden = {"display": "none"}
+def format_can_status(snap, is_connected):
+    """Returns the CAN status pill for the header (3 states: white/green/red)."""
+    if not is_connected:
+        return _pill("Kein Adapter", "#f0f0f0", "#bbb", "#888")
+
     if snap is None:
-        return "", hidden
-
-    # Don't show "lost" during initial startup grace period
-    if _time.monotonic() - _START_TIME < _STARTUP_GRACE_S:
-        return "", hidden
+        return _pill("CAN OK", "#eafaf1", "#27ae60", "#1e8449")
 
     L = snap.get("L", {})
-    pkt_age = (snap["now"] - L.get("last_rx_ms", 0) / 1000.0) if L.get("last_rx_ms") else 999.0
-    if pkt_age < 3.0:
-        return "", hidden
+    last_rx = L.get("last_rx_ms", 0)
 
-    msg = f"CAN connection lost -- no data for {pkt_age:.1f} s"
-    style = {
-        "background": "#c0392b",
-        "color": "#fff",
-        "padding": "10px 16px",
-        "borderRadius": "8px",
-        "fontWeight": "700",
-        "fontSize": "14px",
-        "marginBottom": "10px",
-        "textAlign": "center",
-        "boxShadow": "0 2px 8px rgba(192,57,43,0.35)",
-    }
-    return msg, style
+    if last_rx == 0:
+        # Adapter connected, waiting for first frame
+        return _pill("CAN OK", "#eafaf1", "#27ae60", "#1e8449")
+
+    pkt_age = snap["now"] - last_rx / 1000.0
+    if pkt_age < 3.0:
+        return _pill("CAN OK", "#eafaf1", "#27ae60", "#1e8449")
+
+    return _pill(f"CAN Fehler ({pkt_age:.0f} s)", "#fdf0ee", "#c0392b", "#c0392b")
+
+
+def _pill(text, bg, dot, text_color):
+    return html.Div(
+        children=[
+            html.Span(style={
+                "display": "inline-block", "width": "8px", "height": "8px",
+                "borderRadius": "50%", "background": dot,
+                "marginRight": "6px", "flexShrink": "0",
+            }),
+            html.Span(text, style={"fontSize": "12px", "fontWeight": "600", "color": text_color}),
+        ],
+        style={
+            "display": "inline-flex", "alignItems": "center",
+            "padding": "5px 12px", "borderRadius": "20px",
+            "background": bg, "border": f"1px solid {dot}",
+            "whiteSpace": "nowrap",
+        },
+    )

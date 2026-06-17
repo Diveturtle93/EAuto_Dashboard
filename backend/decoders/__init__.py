@@ -3,8 +3,8 @@ from .can_0x560 import decode_0x560
 
 # Each entry: CAN-ID -> (decoder_fn, status_key, state_key)
 DECODERS = {
-    0x505: (decode_0x505, "bms_status_code",   "bms_state"),
-    0x560: (decode_0x560, "motor_status_code", "motor_state"),
+    0x560: (decode_0x560, "bms_status_code",   "bms_state"),
+    0x505: (decode_0x505, "motor_status_code", "motor_state"),
 }
 
 

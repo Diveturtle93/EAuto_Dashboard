@@ -30,6 +30,7 @@ from ui.callbacks import (
     register_can_config_callback,
     register_export_csv_callback,
     register_status_callback,
+    register_temperature_chart_callback,
 )
 from ui.controls import build_time_window_controls, build_firmware_upload_card, build_can_config_card
 
@@ -54,6 +55,10 @@ latest = dict(
     bms_state="Unknown",
     motor_status_code=None,
     motor_state="Unknown",
+    temp_adc_1=None,
+    temp_adc_2=None,
+    temp_adc_3=None,
+    temp_adc_4=None,
 )
 # ═══════════════════════════════════════════════════════════════════════════════
 
@@ -108,6 +113,12 @@ app.layout = html.Div(
         ),
 
         html.Div(id="status", style={"marginTop": "12px"}),
+
+        # ── Temperatursensoren Balkendiagramm ─────────────────────────────────────────
+        html.Div(style={**_CARD, "marginTop": "14px"}, children=[
+            html.Div("Temperatursensoren (ADC 0x538)", style=_SEC),
+            html.Div(id="temperature_chart"),
+        ]),
         dcc.Interval(id="tick", interval=INTERVAL, n_intervals=0),
         dcc.Store(id="snap", storage_type="memory"),
         dcc.Download(id="dl"),
@@ -125,6 +136,7 @@ register_can_banner_callback(app)
 register_can_config_callback(app, can_manager, latest, lock)
 register_export_csv_callback(app)
 register_status_callback(app)
+register_temperature_chart_callback(app)
 # ═══════════════════════════════════════════════════════════════════════════════
 
 # ═══════════════════════════════════════════════════════════════════════════════

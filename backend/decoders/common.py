@@ -14,7 +14,7 @@ def decode_status_state(data, min_len=1):
     Returns (status_int, state_str) or (None, error_str) on invalid input.
     """
     if len(data) < min_len:
-        return None, "Invalid payload length"
+        return None
 
     first = data[0]
     status = first & 0x0F

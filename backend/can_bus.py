@@ -3,7 +3,7 @@ import time
 
 import can  # python-can: cross-platform CAN library
 
-from backend.decoders import decode_can_message
+from backend.decoders import decode_can_message, decode_can_multi
 
 
 class CanConfig:
@@ -79,6 +79,10 @@ def can_rx_thread(config, latest=None, lock=None, stop_event=None):
                         status, state, status_key, state_key = decoded
                         latest[status_key] = status
                         latest[state_key] = state
+
+                    decoded_multi = decode_can_multi(can_id, d)
+                    if decoded_multi is not None:
+                        latest.update(decoded_multi)
 
         try:
             bus.shutdown()

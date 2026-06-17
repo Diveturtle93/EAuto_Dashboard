@@ -215,6 +215,11 @@ def build_firmware_upload_card():
                 },
                 multiple=False,
             ),
+            html.P(
+                "Nach dem Laden der Datei: Gerät in den Bootloader-Modus versetzen "
+                "(Reset / Power-Cycle). Der Upload startet automatisch und wartet bis zu 30 s auf den Bootloader.",
+                style={"fontSize": "11px", "color": "#888", "margin": "6px 0 0 0"},
+            ),
             html.Div(
                 style={
                     "display": "grid",

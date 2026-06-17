@@ -230,6 +230,8 @@ def _run_flash(tmp_path, filename, device_name, device_channel, baudrate, transm
 def register_firmware_upload_callback(app, can_manager, latest, lock):
     @app.callback(
         Output("bootloader_status", "children"),
+        Output("firmware_upload", "contents"),
+        Output("firmware_upload", "filename"),
         Input("firmware_upload", "contents"),
         State("firmware_upload", "filename"),
         State("bootloader_rx_id", "value"),
@@ -241,19 +243,19 @@ def register_firmware_upload_callback(app, can_manager, latest, lock):
             return html.Span(
                 "Bitte zuerst eine Firmware-Datei auswählen.",
                 style={"color": "#e67e22"},
-            )
+            ), None, None
 
         try:
             transmit_id = _parse_can_id(rx_id_str)  # host transmits to bootloader RX ID
             receive_id  = _parse_can_id(tx_id_str)  # host receives from bootloader TX ID
         except (ValueError, TypeError):
-            return html.Span("Fehler: Ungültige CAN-ID eingegeben.", style={"color": "#c0392b"})
+            return html.Span("Fehler: Ungültige CAN-ID eingegeben.", style={"color": "#c0392b"}), None, None
 
         if not can_manager.is_running:
             return html.Span(
                 "Fehler: CAN-Bus nicht verbunden. Bitte zuerst im Konfigurationsfeld verbinden.",
                 style={"color": "#c0392b"},
-            )
+            ), None, None
 
         cfg = can_manager.config
         device_name, device_channel = _openblt_device(cfg.interface, cfg.channel)
@@ -263,13 +265,13 @@ def register_firmware_upload_callback(app, can_manager, latest, lock):
                 f"Fehler: Interface '{cfg.interface}' wird von OpenBLT nicht unterstützt "
                 f"(unterstützt: {', '.join(_INTERFACE_MAP.keys())}).",
                 style={"color": "#c0392b"},
-            )
+            ), None, None
 
         try:
             _, b64 = contents.split(",", 1)
             file_bytes = base64.b64decode(b64)
         except Exception as exc:
-            return html.Span(f"Fehler beim Lesen der Datei: {exc}", style={"color": "#c0392b"})
+            return html.Span(f"Fehler beim Lesen der Datei: {exc}", style={"color": "#c0392b"}), None, None
 
         tmp_path = None
         try:
@@ -292,10 +294,10 @@ def register_firmware_upload_callback(app, can_manager, latest, lock):
                 # Give the target time to store the checksum, reset, and start the app.
                 time.sleep(3.0)
                 can_manager.start(cfg, latest, lock)
-            return result
+            return result, None, None
 
         except Exception as exc:
-            return html.Span(f"Unerwarteter Fehler: {exc}", style={"color": "#c0392b"})
+            return html.Span(f"Unerwarteter Fehler: {exc}", style={"color": "#c0392b"}), None, None
 
         finally:
             if tmp_path:

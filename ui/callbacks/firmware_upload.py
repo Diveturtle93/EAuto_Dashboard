@@ -1,7 +1,6 @@
 import base64
 import os
 import re
-import subprocess
 import tempfile
 import time
 
@@ -17,21 +16,9 @@ _INTERFACE_MAP = {
     "slcan":  "lawicel_canusb",
 }
 
-# Look for BootCommander.exe in the openblt/ directory (next to libopenblt.dll)
-_PROJECT_ROOT = os.path.dirname(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
-_BOOTCOMMANDER_PATHS = [
-    os.path.join(_PROJECT_ROOT, "openblt", "BootCommander.exe"),
-    os.path.join(_PROJECT_ROOT, "BootCommander.exe"),
-]
-
-_FLASH_TIMEOUT = 180  # seconds – subprocess timeout for the entire flash operation
-
-
-def _find_bootcommander():
-    for path in _BOOTCOMMANDER_PATHS:
-        if os.path.isfile(path):
-            return path
-    return None
+_CONNECT_TIMEOUT = 30     # seconds to wait for bootloader to become available
+_ERASE_CHUNK     = 32768  # 32 KB per PROGRAM_CLEAR call  – matches BootCommander
+_WRITE_CHUNK     = 256    # 256 B  per BltSessionWriteData – matches BootCommander
 
 
 def _parse_can_id(value):
@@ -60,84 +47,184 @@ def _openblt_device(interface, channel):
 
 
 def _run_flash(tmp_path, filename, device_name, device_channel, baudrate, transmit_id, receive_id):
-    """Flash firmware via BootCommander subprocess. Returns a Dash component."""
-    bootcommander = _find_bootcommander()
-    if bootcommander is None:
-        searched = ", ".join(_BOOTCOMMANDER_PATHS)
-        return html.Span(
-            f"Fehler: BootCommander.exe nicht gefunden. "
-            f"Bitte in den openblt/-Ordner kopieren. (Gesucht in: {searched})",
-            style={"color": "#c0392b"},
-        )
-
-    cmd = [
-        bootcommander,
-        "-s=xcp",
-        "-t=xcp_can",
-        f"-d={device_name}",
-        f"-c={device_channel}",
-        f"-b={baudrate}",
-        f"-tid={transmit_id:x}",
-        f"-rid={receive_id:x}",
-        "-t4=60000",   # erase timeout 60 s
-        "-t3=10000",   # program-start timeout 10 s
-        tmp_path,
-    ]
-
+    """Execute the OpenBLT firmware update sequence. Returns a Dash component."""
     try:
-        proc = subprocess.run(
-            cmd,
-            capture_output=True,
-            text=True,
-            timeout=_FLASH_TIMEOUT,
-        )
-    except subprocess.TimeoutExpired:
+        import openblt  # lazy import – libopenblt.dll must be present at flash time
+    except (OSError, ImportError) as exc:
         return html.Span(
-            f"Timeout: Flashvorgang nach {_FLASH_TIMEOUT} s abgebrochen. "
-            "Bitte Gerät neu starten und erneut versuchen.",
-            style={"color": "#c0392b"},
-        )
-    except Exception as exc:
-        return html.Span(
-            f"Fehler beim Starten von BootCommander: {exc}",
+            f"Fehler: libopenblt.dll nicht gefunden – bitte in den openblt-Ordner kopieren. ({exc})",
             style={"color": "#c0392b"},
         )
 
-    output = (proc.stdout or "") + (proc.stderr or "")
-    output_lines = [ln.strip() for ln in output.splitlines() if ln.strip()]
+    openblt.firmware_init(openblt.BLT_FIRMWARE_PARSER_SRECORD)
+    try:
+        if openblt.firmware_load_from_file(tmp_path, 0) != openblt.BLT_RESULT_OK:
+            return html.Span(
+                "Fehler: Firmware-Datei konnte nicht geladen werden (kein gültiges S-Record?).",
+                style={"color": "#c0392b"},
+            )
 
-    if proc.returncode == 0:
-        return html.Div([
-            html.Span(
-                f"Firmware erfolgreich übertragen!  Datei: {filename}",
-                style={"color": "#27ae60", "fontWeight": "600"},
-            ),
-            html.Div(
-                [
-                    html.Div(ln, style={"fontFamily": "monospace", "fontSize": "11px", "color": "#555"})
-                    for ln in output_lines[-12:]
-                ],
-                style={"marginTop": "4px"},
-            ),
-            html.Div(
-                "Das Gerät wird via PROGRAM_RESET automatisch neu gestartet.",
-                style={"fontSize": "11px", "color": "#888", "marginTop": "4px"},
-            ),
-        ])
+        seg_count = openblt.firmware_get_segment_count()
+        if seg_count == 0:
+            return html.Span(
+                "Fehler: Keine Firmware-Segmente in der Datei gefunden.",
+                style={"color": "#c0392b"},
+            )
 
-    return html.Div([
-        html.Span(
-            "Flash fehlgeschlagen.",
-            style={"color": "#c0392b", "fontWeight": "600"},
-        ),
-        html.Div(
-            [
-                html.Div(ln, style={"fontFamily": "monospace", "fontSize": "11px", "color": "#c0392b"})
-                for ln in output_lines[-15:]
-            ],
-            style={"marginTop": "4px"},
-        ),
-    ])
+        # Pre-load all segment data into Python lists before starting the session.
+        segments = []
+        for i in range(seg_count):
+            seg_data, seg_addr, seg_len = openblt.firmware_get_segment(i)
+            segments.append((list(seg_data), seg_addr, seg_len))
+
+        # Validate vector table of the first segment (should be at APP_START)
+        vec_lines = []
+        first_data, first_addr, first_len = segments[0]
+        if first_len >= 8:
+            sp = (first_data[0] | (first_data[1] << 8) |
+                  (first_data[2] << 16) | (first_data[3] << 24))
+            rv = (first_data[4] | (first_data[5] << 8) |
+                  (first_data[6] << 16) | (first_data[7] << 24))
+            sp_ok = 0x20000000 <= sp <= 0x2FFFFFFF
+            rv_ok = 0x08000000 <= (rv & ~1) <= 0x0FFFFFFF and bool(rv & 1)
+            vec_lines = [
+                html.Div(
+                    f"  Vektortabelle @ 0x{first_addr:08X}:  "
+                    f"SP=0x{sp:08X} {'✓' if sp_ok else '✗ (ungültig!)'}  "
+                    f"RV=0x{rv:08X} {'✓' if rv_ok else '✗ (ungültig!)'}",
+                    style={
+                        "fontFamily": "monospace", "fontSize": "11px",
+                        "color": "#27ae60" if (sp_ok and rv_ok) else "#c0392b",
+                    },
+                )
+            ]
+            if not (sp_ok and rv_ok):
+                return html.Div([
+                    html.Span(
+                        "Fehler: Vektortabelle der Firmware ist ungültig — "
+                        "der Bootloader würde die Applikation nicht starten.",
+                        style={"color": "#c0392b", "fontWeight": "600"},
+                    ),
+                    *vec_lines,
+                    html.Div(
+                        "Mögliche Ursache: Firmware nicht für die korrekte Startadresse "
+                        f"(0x{first_addr:08X}) kompiliert. Flash wird nicht durchgeführt.",
+                        style={"fontSize": "11px", "color": "#888", "marginTop": "4px"},
+                    ),
+                ])
+
+        session_settings = openblt.BltSessionSettingsXcpV10()
+        session_settings.timeoutT4 = 60000  # erase timeout 60 s for large flash regions
+
+        transport_settings = openblt.BltTransportSettingsXcpV10Can()
+        transport_settings.deviceName    = device_name
+        transport_settings.deviceChannel = device_channel
+        transport_settings.baudrate      = baudrate
+        transport_settings.transmitId    = transmit_id  # host → bootloader
+        transport_settings.receiveId     = receive_id   # bootloader → host
+        transport_settings.useExtended   = 0
+        transport_settings.brsBaudrate   = 0
+
+        # ── Connect: init ONCE, then retry session_start in a tight loop ────────────
+        # BootCommander does exactly this – it never calls init/terminate per retry.
+        openblt.session_init(
+            openblt.BLT_SESSION_XCP_V10, session_settings,
+            openblt.BLT_TRANSPORT_XCP_V10_CAN, transport_settings,
+        )
+        try:
+            deadline = time.monotonic() + _CONNECT_TIMEOUT
+            connected = False
+            while time.monotonic() < deadline:
+                if openblt.session_start() == openblt.BLT_RESULT_OK:
+                    connected = True
+                    break
+                time.sleep(0.02)  # 20 ms between attempts – same as BootCommander
+
+            if not connected:
+                return html.Span(
+                    f"Fehler: Bootloader nach {_CONNECT_TIMEOUT} s nicht erreichbar. "
+                    "Bitte Gerät innerhalb des Zeitfensters in den Bootloader-Modus versetzen "
+                    "(Reset / Power-Cycle).",
+                    style={"color": "#c0392b"},
+                )
+
+            try:
+                total_bytes = 0
+                segment_info = []
+
+                # ── Pass 1: erase ALL segments before writing any ──────────────────
+                # Matches BootCommander's sequence: all erases first, then all writes.
+                # The OpenBLT bootloader builds its valid-app checksum based on the
+                # full programmed address range; interleaving erases with writes causes
+                # it to compute the checksum over an incomplete range.
+                for seg_data, seg_addr, seg_len in segments:
+                    remaining = seg_len
+                    addr = seg_addr
+                    while remaining > 0:
+                        chunk = min(remaining, _ERASE_CHUNK)
+                        if openblt.session_clear_memory(addr, chunk) != openblt.BLT_RESULT_OK:
+                            return html.Span(
+                                f"Fehler: Flash-Löschung fehlgeschlagen (Adresse 0x{addr:08X}).",
+                                style={"color": "#c0392b"},
+                            )
+                        addr      += chunk
+                        remaining -= chunk
+
+                # ── Pass 2: write ALL segments ────────────────────────────────────
+                for seg_data, seg_addr, seg_len in segments:
+                    remaining = seg_len
+                    addr      = seg_addr
+                    offset    = 0
+                    while remaining > 0:
+                        chunk = min(remaining, _WRITE_CHUNK)
+                        if openblt.session_write_data(
+                            addr, chunk, seg_data[offset:offset + chunk]
+                        ) != openblt.BLT_RESULT_OK:
+                            return html.Span(
+                                f"Fehler: Schreiben fehlgeschlagen (Adresse 0x{addr:08X}).",
+                                style={"color": "#c0392b"},
+                            )
+                        addr      += chunk
+                        offset    += chunk
+                        remaining -= chunk
+
+                    segment_info.append((seg_addr, seg_addr + seg_len - 1, seg_len))
+                    total_bytes += seg_len
+
+                seg_lines = [
+                    html.Div(
+                        f"  Segment {j + 1}: 0x{a0:08X} – 0x{a1:08X}  ({ln} Bytes)",
+                        style={"fontFamily": "monospace", "fontSize": "11px", "color": "#555"},
+                    )
+                    for j, (a0, a1, ln) in enumerate(segment_info)
+                ]
+                return html.Div([
+                    html.Span(
+                        f"Firmware erfolgreich übertragen!  "
+                        f"Datei: {filename} · {seg_count} Segment(e) · {total_bytes} Bytes",
+                        style={"color": "#27ae60", "fontWeight": "600"},
+                    ),
+                    html.Div(seg_lines, style={"marginTop": "4px"}),
+                    *vec_lines,
+                    html.Div(
+                        "Das Gerät wird via PROGRAM_RESET automatisch neu gestartet. "
+                        "Falls die Applikation nicht läuft: Gerät manuell neu starten (Power-Cycle).",
+                        style={"fontSize": "11px", "color": "#888", "marginTop": "4px"},
+                    ),
+                ])
+
+            finally:
+                openblt.session_stop()
+                # Give the PCAN controller time to actually transmit the PROGRAM_RESET frame
+                # (0xCF) before session_terminate() closes the CAN channel and discards its
+                # TX buffer.  Without this pause the frame is queued but never sent.
+                time.sleep(0.2)
+
+        finally:
+            openblt.session_terminate()
+
+    finally:
+        openblt.firmware_terminate()
 
 
 def register_firmware_upload_callback(app, can_manager, latest, lock):
@@ -190,8 +277,9 @@ def register_firmware_upload_callback(app, can_manager, latest, lock):
                 tmp_path = f.name
                 f.write(file_bytes)
 
-            # BootCommander needs exclusive access to the PCAN adapter.
-            # Stop the CAN receive thread and wait for the driver to be released.
+            # OpenBLT needs exclusive access – pause the CAN receive thread.
+            # A short delay after stop() ensures the PCAN driver is fully released
+            # before libopenblt opens it.
             can_manager.stop()
             time.sleep(0.5)
             try:

@@ -215,10 +215,51 @@ def build_firmware_upload_card():
                 },
                 multiple=False,
             ),
-            html.P(
-                "Nach dem Laden der Datei: Gerät in den Bootloader-Modus versetzen "
-                "(Reset / Power-Cycle). Der Upload startet automatisch und wartet bis zu 30 s auf den Bootloader.",
-                style={"fontSize": "11px", "color": "#888", "margin": "6px 0 0 0"},
+            html.Div(
+                style={
+                    "background": "#f0f4ff",
+                    "border": "1px solid #c7d2fe",
+                    "borderRadius": "8px",
+                    "padding": "14px 16px",
+                    "marginTop": "12px",
+                    "fontSize": "12px",
+                    "color": "#374151",
+                    "lineHeight": "1.7",
+                },
+                children=[
+                    html.P(
+                        "So wird ein Update durchgeführt:",
+                        style={"fontWeight": "700", "margin": "0 0 6px 0", "fontSize": "12px"},
+                    ),
+                    html.Ol(
+                        children=[
+                            html.Li("Firmware-Datei (.srec) oben in das Upload-Feld ziehen oder per Klick auswählen."),
+                            html.Li("Das Steuergerät wechselt automatisch in den Bootloader-Modus, sobald es die erste Bootloader-Nachricht empfängt – ein manueller Reset oder Power-Cycle ist nicht erforderlich."),
+                            html.Li("Der Upload startet automatisch, sobald der Bootloader erkannt wird (Wartezeit bis zu 30 s)."),
+                            html.Li("Den Fortschritt und etwaige Fehlermeldungen im Statusbereich unterhalb der Schaltfläche verfolgen."),
+                        ],
+                        style={"margin": "0 0 10px 0", "paddingLeft": "18px"},
+                    ),
+                    html.P(
+                        "Bedeutung der CAN-IDs:",
+                        style={"fontWeight": "700", "margin": "0 0 4px 0", "fontSize": "12px"},
+                    ),
+                    html.Ul(
+                        children=[
+                            html.Li([
+                                html.Strong("Bootloader RX CAN-ID:"),
+                                " CAN-ID, über die das Dashboard Befehle an den Bootloader im Steuergerät sendet. "
+                                "Muss mit der im Steuergerät konfigurierten Master-TX-ID übereinstimmen.",
+                            ]),
+                            html.Li([
+                                html.Strong("Bootloader TX CAN-ID:"),
+                                " CAN-ID, über die der Bootloader Antworten an das Dashboard zurücksendet. "
+                                "Muss mit der im Steuergerät konfigurierten Master-RX-ID übereinstimmen.",
+                            ]),
+                        ],
+                        style={"margin": "0", "paddingLeft": "18px"},
+                    ),
+                ],
             ),
             html.Div(
                 style={
@@ -264,28 +305,6 @@ def build_firmware_upload_card():
                             id="bootloader_tx_id",
                             type="text",
                             value="0x7EE",
-                            style={
-                                "width": "100%",
-                                "padding": "8px 10px",
-                                "borderRadius": "6px",
-                                "border": "1px solid #d1d5db",
-                            },
-                        ),
-                    ]),
-                    html.Div(children=[
-                        html.Div(
-                            "Program Startadresse",
-                            style={
-                                "fontSize": "11px",
-                                "fontWeight": "700",
-                                "color": "#555",
-                                "marginBottom": "4px",
-                            },
-                        ),
-                        dcc.Input(
-                            id="bootloader_start_address",
-                            type="text",
-                            value="0x08003000",
                             style={
                                 "width": "100%",
                                 "padding": "8px 10px",

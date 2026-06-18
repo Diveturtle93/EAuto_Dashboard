@@ -1,3 +1,4 @@
+import can
 from dash import Input, Output, State
 from dash.exceptions import PreventUpdate
 
@@ -41,10 +42,18 @@ def register_can_config_callback(app, can_manager, latest, lock):
             can_manager.stop()
             with lock:
                 latest["last_rx_ms"] = 0
+                latest["can_adapter_connected"] = False
             return "Verbinden", _BTN_CONNECT, "Getrennt.", False, _FIELDS_VISIBLE
 
         if not interface or not channel or not bitrate:
             return "Verbinden", _BTN_CONNECT, "Bitte Interface, Kanal und Baudrate auswählen.", False, _FIELDS_VISIBLE
+
+        # Synchroner Verbindungstest – schlägt sofort fehl wenn kein Adapter vorhanden
+        try:
+            test_bus = can.Bus(interface=interface, channel=str(channel), bitrate=int(bitrate))
+            test_bus.shutdown()
+        except (can.CanError, OSError, ValueError) as e:
+            return "Verbinden", _BTN_CONNECT, f"Kein Adapter gefunden: {e}", False, _FIELDS_VISIBLE
 
         config = CanConfig(interface, str(channel), int(bitrate))
         can_manager.start(config, latest, lock)

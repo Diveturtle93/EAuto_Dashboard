@@ -51,6 +51,7 @@ lock   = threading.Lock()
 # ── latest snapshot (all fields) ────────────────────────────────────────────
 latest = dict(
     last_rx_ms=0,
+    can_adapter_connected=False,
     bms_status_code=None,
     bms_state="Unknown",
     motor_status_code=None,

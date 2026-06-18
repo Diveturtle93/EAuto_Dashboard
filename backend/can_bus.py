@@ -39,8 +39,14 @@ def can_rx_thread(config, latest=None, lock=None, stop_event=None):
                           bitrate=config.bitrate)
             print(f"[CAN] Connected: interface={config.interface}, channel={config.channel}, bitrate={config.bitrate}")
             backoff = config.reconnect_delay  # reset on successful connect
+            if latest is not None and lock is not None:
+                with lock:
+                    latest["can_adapter_connected"] = True
         except (can.CanError, OSError, ValueError) as e:
             print(f"[CAN] Cannot open {config.interface}/{config.channel}: {e}  -- retrying in {backoff:.0f} s")
+            if latest is not None and lock is not None:
+                with lock:
+                    latest["can_adapter_connected"] = False
             deadline = time.time() + backoff
             while time.time() < deadline:
                 if stop_event and stop_event.is_set():
@@ -55,6 +61,9 @@ def can_rx_thread(config, latest=None, lock=None, stop_event=None):
                     bus.shutdown()
                 except (can.CanError, OSError):
                     pass
+                if latest is not None and lock is not None:
+                    with lock:
+                        latest["can_adapter_connected"] = False
                 print("[CAN] Thread stopped.")
                 return
 
@@ -62,6 +71,9 @@ def can_rx_thread(config, latest=None, lock=None, stop_event=None):
                 msg = bus.recv(timeout=config.timeout)
             except can.CanError as e:
                 print(f"[CAN] Bus error: {e}  -- reconnecting in {backoff:.0f} s")
+                if latest is not None and lock is not None:
+                    with lock:
+                        latest["can_adapter_connected"] = False
                 break
 
             if msg is None:

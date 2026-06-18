@@ -2,18 +2,17 @@ from dash import html
 
 
 def format_can_status(snap, is_connected):
-    """Returns the CAN status pill for the header (3 states: white/green/red)."""
+    """Returns the CAN status pill for the header (4 states: grey/yellow/green/red)."""
     if not is_connected:
         return _pill("Kein Adapter", "#f0f0f0", "#bbb", "#888")
 
-    if snap is None:
-        return _pill("CAN OK", "#eafaf1", "#27ae60", "#1e8449")
+    L = snap.get("L", {}) if snap else {}
+    if not L.get("can_adapter_connected", False):
+        # Adapter wurde nach Verbindungsaufbau getrennt (Reconnect läuft)
+        return _pill("Adapter getrennt", "#fef9ec", "#e6a817", "#b7830d")
 
-    L = snap.get("L", {})
     last_rx = L.get("last_rx_ms", 0)
-
     if last_rx == 0:
-        # Adapter connected, waiting for first frame
         return _pill("CAN OK", "#eafaf1", "#27ae60", "#1e8449")
 
     pkt_age = snap["now"] - last_rx / 1000.0

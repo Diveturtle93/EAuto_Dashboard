@@ -1,3 +1,4 @@
+import can
 from dash import Input, Output, State
 from dash.exceptions import PreventUpdate
 
@@ -15,12 +16,17 @@ _BTN_DISCONNECT = {
 }
 
 
+_FIELDS_VISIBLE = {"display": "flex", "alignItems": "center", "gap": "8px", "flexWrap": "wrap"}
+_FIELDS_HIDDEN  = {"display": "none"}
+
+
 def register_can_config_callback(app, can_manager, latest, lock):
     @app.callback(
         Output("btn_can_connect", "children"),
         Output("btn_can_connect", "style"),
         Output("can_connect_status", "children"),
         Output("can_connected", "data"),
+        Output("can_config_fields", "style"),
         Input("btn_can_connect", "n_clicks"),
         State("can_interface", "value"),
         State("can_channel", "value"),
@@ -36,10 +42,18 @@ def register_can_config_callback(app, can_manager, latest, lock):
             can_manager.stop()
             with lock:
                 latest["last_rx_ms"] = 0
-            return "Verbinden", _BTN_CONNECT, "Getrennt.", False
+                latest["can_adapter_connected"] = False
+            return "Verbinden", _BTN_CONNECT, "Getrennt.", False, _FIELDS_VISIBLE
 
         if not interface or not channel or not bitrate:
-            return "Verbinden", _BTN_CONNECT, "Bitte Interface, Kanal und Baudrate auswählen.", False
+            return "Verbinden", _BTN_CONNECT, "Bitte Interface, Kanal und Baudrate auswählen.", False, _FIELDS_VISIBLE
+
+        # Synchroner Verbindungstest – schlägt sofort fehl wenn kein Adapter vorhanden
+        try:
+            test_bus = can.Bus(interface=interface, channel=str(channel), bitrate=int(bitrate))
+            test_bus.shutdown()
+        except (can.CanError, OSError, ValueError) as e:
+            return "Verbinden", _BTN_CONNECT, f"Kein Adapter gefunden: {e}", False, _FIELDS_VISIBLE
 
         config = CanConfig(interface, str(channel), int(bitrate))
         can_manager.start(config, latest, lock)
@@ -48,4 +62,5 @@ def register_can_config_callback(app, can_manager, latest, lock):
             _BTN_DISCONNECT,
             f"Verbunden: {interface} / {channel} @ {bitrate // 1000} kbit/s",
             True,
+            _FIELDS_HIDDEN,
         )

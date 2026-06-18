@@ -134,64 +134,46 @@ def build_time_window_controls():
     )
 
 
-def build_can_config_card(default_interface="pcan", default_channel="PCAN_USBBUS1", default_bitrate=500000):
-    """CAN-Adapter Konfigurationskarte mit Connect/Disconnect-Button."""
+def build_can_config_fields(default_interface="pcan", default_channel="PCAN_USBBUS1", default_bitrate=500000):
+    """CAN-Adapter Konfigurationsfelder – kompakte Inline-Darstellung für die Titelleiste."""
+    _INPUT_COMPACT = {**_INPUT, "padding": "5px 8px", "fontSize": "12px", "width": "130px"}
     return html.Div(
-        style={**_CARD, "border": "1px solid #dfe3ea"},
+        style={"display": "flex", "alignItems": "center", "gap": "8px", "flexWrap": "wrap"},
         children=[
-            html.P("CAN-Adapter", style={**_SEC, "marginBottom": "8px"}),
             html.Div(
-                style={
-                    "display": "grid",
-                    "gridTemplateColumns": "repeat(auto-fit, minmax(160px, 1fr))",
-                    "gap": "12px",
-                    "marginBottom": "12px",
-                },
+                id="can_config_fields",
+                style={"display": "flex", "alignItems": "center", "gap": "8px", "flexWrap": "wrap"},
                 children=[
-                    html.Div([
-                        html.Div("Interface", style=_LABEL),
-                        dcc.Dropdown(
-                            id="can_interface",
-                            options=[{"label": i, "value": i} for i in _INTERFACES],
-                            value=default_interface,
-                            clearable=False,
-                            style={"fontSize": "13px"},
-                        ),
-                    ]),
-                    html.Div([
-                        html.Div("Kanal / Port", style=_LABEL),
-                        dcc.Input(
-                            id="can_channel",
-                            type="text",
-                            value=default_channel,
-                            debounce=True,
-                            style=_INPUT,
-                        ),
-                    ]),
-                    html.Div([
-                        html.Div("Baudrate", style=_LABEL),
-                        dcc.Dropdown(
-                            id="can_bitrate",
-                            options=_BITRATES,
-                            value=default_bitrate,
-                            clearable=False,
-                            style={"fontSize": "13px"},
-                        ),
-                    ]),
-                ],
-            ),
-            html.Div(
-                style={"display": "flex", "alignItems": "center", "gap": "14px"},
-                children=[
-                    html.Button(
-                        "Verbinden",
-                        id="btn_can_connect",
-                        n_clicks=0,
-                        style=_BTN_CONNECT,
+                    dcc.Dropdown(
+                        id="can_interface",
+                        options=[{"label": i, "value": i} for i in _INTERFACES],
+                        value=default_interface,
+                        clearable=False,
+                        style={"fontSize": "12px", "width": "120px"},
                     ),
-                    html.Div(id="can_connect_status", style={"fontSize": "13px", "color": "#555"}),
+                    dcc.Input(
+                        id="can_channel",
+                        type="text",
+                        value=default_channel,
+                        debounce=True,
+                        style=_INPUT_COMPACT,
+                    ),
+                    dcc.Dropdown(
+                        id="can_bitrate",
+                        options=_BITRATES,
+                        value=default_bitrate,
+                        clearable=False,
+                        style={"fontSize": "12px", "width": "120px"},
+                    ),
                 ],
             ),
+            html.Button(
+                "Verbinden",
+                id="btn_can_connect",
+                n_clicks=0,
+                style=_BTN_CONNECT,
+            ),
+            html.Div(id="can_connect_status", style={"fontSize": "12px", "color": "#555"}),
             dcc.Store(id="can_connected", data=False),
         ],
     )

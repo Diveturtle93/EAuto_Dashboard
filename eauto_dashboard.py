@@ -32,7 +32,7 @@ from ui.callbacks import (
     register_status_callback,
     register_temperature_chart_callback,
 )
-from ui.controls import build_time_window_controls, build_firmware_upload_card, build_can_config_card
+from ui.controls import build_time_window_controls, build_firmware_upload_card, build_can_config_fields
 
 # ═══════════════════════════════════════════════════════════════════════════════
 #  CONFIG  (command-line args → pre-fill UI defaults only, no auto-connect)
@@ -88,25 +88,20 @@ app.layout = html.Div(
            "maxWidth": "1300px", "margin": "0 auto"},
     children=[
 
-        # ── Page title ──────────────────────────────────────────────────────────────────
+        # ── Page title + CAN-Konfiguration ──────────────────────────────────────────────
         html.Div(
-            style={**_CARD, "marginBottom": "14px", "display": "flex",
-                   "alignItems": "center", "justifyContent": "space-between",
-                   "flexWrap": "wrap", "gap": "10px"},
+            style={**_CARD, "marginBottom": "14px", "padding": "10px 14px",
+                   "display": "flex", "alignItems": "center",
+                   "gap": "16px", "flexWrap": "wrap"},
             children=[
-                html.Div([
-                    html.H2("EAuto Live Dashboard (Windows)",
-                            style={"margin": "0", "fontSize": "20px", "color": "#222",
-                                   "fontWeight": "700"}),
-                    html.Span("CAN-Adapter wird über das Konfigurationsfeld unten verbunden.",
-                              style={"fontSize": "11px", "color": "#888"}),
-                ]),
+                html.H2("EAuto Live Dashboard",
+                        style={"margin": "0", "fontSize": "16px", "color": "#222",
+                               "fontWeight": "700", "whiteSpace": "nowrap"}),
+                html.Div(style={"flex": "1"}),
+                build_can_config_fields(DEFAULT_INTERFACE, DEFAULT_CHANNEL, DEFAULT_BITRATE),
                 html.Div(id="can_status_indicator"),
             ],
         ),
-
-        # ── CAN-Adapter Konfiguration ──────────────────────────────────────────────────
-        build_can_config_card(DEFAULT_INTERFACE, DEFAULT_CHANNEL, DEFAULT_BITRATE),
 
         # ── Tabs ──────────────────────────────────────────────────────────────────────
         dcc.Tabs(

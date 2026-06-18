@@ -32,6 +32,17 @@ _INPUT = {
 }
 
 _INTERFACES = ["pcan", "vector", "kvaser", "slcan", "ixxat", "usb2can", "socketcan"]
+
+# (Name, Bootloader-RX-ID, Bootloader-TX-ID)
+ECU_PRESETS = [
+    ("BMS",         "0x7E0", "0x7E1"),
+    ("Charger",     "0x66A", "0x7E4"),
+    ("HBT",         "0x66B", "0x7E5"),
+    ("MBT",         "0x66C", "0x7E6"),
+    ("SOC Display", "0x66D", "0x7E7"),
+    ("Display 1",   "0x66E", "0x7EE"),
+    ("Display 2",   "0x66F", "0x7EF"),
+]
 _BITRATES = [
     {"label": "125 kbit/s",  "value": 125000},
     {"label": "250 kbit/s",  "value": 250000},
@@ -262,11 +273,31 @@ def build_firmware_upload_card():
                 ],
             ),
             html.Div(
+                style={"marginTop": "16px"},
+                children=[
+                    html.Div("Steuergerät", style=_LABEL),
+                    dcc.Dropdown(
+                        id="ecu_preset",
+                        options=(
+                            [{"label": "– Manuell –", "value": ""}]
+                            + [
+                                {"label": f"{name}  ({rx} / {tx})", "value": f"{rx}|{tx}"}
+                                for name, rx, tx in ECU_PRESETS
+                            ]
+                        ),
+                        value="",
+                        clearable=False,
+                        placeholder="Steuergerät wählen …",
+                        style={"fontSize": "13px"},
+                    ),
+                ],
+            ),
+            html.Div(
                 style={
                     "display": "grid",
                     "gridTemplateColumns": "repeat(auto-fit, minmax(180px, 1fr))",
                     "gap": "12px",
-                    "marginTop": "16px",
+                    "marginTop": "12px",
                 },
                 children=[
                     html.Div(children=[

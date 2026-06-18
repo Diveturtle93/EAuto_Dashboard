@@ -29,12 +29,10 @@ from ui.callbacks import (
     register_can_banner_callback,
     register_can_config_callback,
     register_export_csv_callback,
-    register_firmware_upload_callback,
     register_status_callback,
     register_temperature_chart_callback,
 )
 from ui.controls import build_time_window_controls, build_firmware_upload_card, build_can_config_card
-from ui.callbacks.temperature_chart import build_temperature_graph
 
 # ═══════════════════════════════════════════════════════════════════════════════
 #  CONFIG  (command-line args → pre-fill UI defaults only, no auto-connect)
@@ -110,22 +108,39 @@ app.layout = html.Div(
         # ── CAN-Adapter Konfiguration ──────────────────────────────────────────────────
         build_can_config_card(DEFAULT_INTERFACE, DEFAULT_CHANNEL, DEFAULT_BITRATE),
 
-        # ── Main Grid: Dashboard Controls ─────────────────────────────────────────────
-        html.Div(
-            style={"display": "grid", "gridTemplateColumns": "1fr", "gap": "14px"},
+        # ── Tabs ──────────────────────────────────────────────────────────────────────
+        dcc.Tabs(
+            id="main_tabs",
+            value="tab_dashboard",
+            style={"marginBottom": "14px"},
+            colors={"border": "#dfe3ea", "primary": "#2980b9", "background": "#eef0f4"},
             children=[
-                build_time_window_controls(),
-                build_firmware_upload_card(),
-            ]
+                dcc.Tab(
+                    label="Dashboard",
+                    value="tab_dashboard",
+                    children=[
+                        html.Div(style={"paddingTop": "14px"}, children=[
+                            build_time_window_controls(),
+                            html.Div(id="status", style={"marginTop": "12px"}),
+                            html.Div(style={**_CARD, "marginTop": "14px"}, children=[
+                                html.Div("Temperatursensoren (ADC 0x538)", style=_SEC),
+                                html.Div(id="temperature_chart"),
+                            ]),
+                        ]),
+                    ],
+                ),
+                dcc.Tab(
+                    label="Bootloader",
+                    value="tab_bootloader",
+                    children=[
+                        html.Div(style={"paddingTop": "14px"}, children=[
+                            build_firmware_upload_card(),
+                        ]),
+                    ],
+                ),
+            ],
         ),
 
-        html.Div(id="status", style={"marginTop": "12px"}),
-
-        # ── Temperatursensoren Balkendiagramm ─────────────────────────────────────────
-        html.Div(style={**_CARD, "marginTop": "14px"}, children=[
-            html.Div("Temperatursensoren (ADC 0x538)", style=_SEC),
-            build_temperature_graph(),
-        ]),
         dcc.Interval(id="tick", interval=INTERVAL, n_intervals=0),
         dcc.Store(id="snap", storage_type="memory"),
         dcc.Download(id="dl"),
@@ -142,7 +157,6 @@ register_reset_callback(app, lock, latest)
 register_can_banner_callback(app)
 register_can_config_callback(app, can_manager, latest, lock)
 register_export_csv_callback(app)
-register_firmware_upload_callback(app, can_manager, latest, lock)
 register_status_callback(app)
 register_temperature_chart_callback(app)
 # ═══════════════════════════════════════════════════════════════════════════════

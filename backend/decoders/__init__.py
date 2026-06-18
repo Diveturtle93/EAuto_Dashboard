@@ -1,17 +1,16 @@
-from .can_0x505 import decode_0x505
-from .can_0x560 import decode_0x560
-from .can_0x538 import decode_0x538
+# ── Single-value decoders ──────────────────────────────────────────────────────
+# Maps CAN-ID → (decoder_fn, status_key, state_key)
+# Example:
+#   from .can_0x505 import decode_0x505
+#   DECODERS[0x505] = (decode_0x505, "motor_status_code", "motor_state")
+DECODERS = {}
 
-# Each entry: CAN-ID -> (decoder_fn, status_key, state_key)
-DECODERS = {
-    0x505: (decode_0x505, "motor_status_code", "motor_state"),
-    0x560: (decode_0x560, "bms_status_code",   "bms_state"),
-}
-
-# Multi-value decoders: CAN-ID -> decoder_fn returning {key: value, ...}
-MULTI_DECODERS = {
-    0x538: decode_0x538,
-}
+# ── Multi-value decoders ───────────────────────────────────────────────────────
+# Maps CAN-ID → decoder_fn returning {key: value, ...}
+# Example:
+#   from .can_0x538 import decode_0x538
+#   MULTI_DECODERS[0x538] = decode_0x538
+MULTI_DECODERS = {}
 
 
 def decode_can_message(can_id, data):

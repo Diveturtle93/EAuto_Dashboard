@@ -68,19 +68,18 @@ def can_rx_thread(config, latest=None, lock=None, stop_event=None):
                 continue
 
             can_id = msg.arbitration_id
-            d = list(msg.data)
+
+            # Decode outside the lock — pure functions, no shared state
+            decoded = decode_can_message(can_id, msg.data)
+            decoded_multi = decode_can_multi(can_id, msg.data)
 
             if latest is not None and lock is not None:
                 with lock:
                     latest["last_rx_ms"] = int(time.time() * 1000)
-
-                    decoded = decode_can_message(can_id, d)
                     if decoded is not None:
                         status, state, status_key, state_key = decoded
                         latest[status_key] = status
                         latest[state_key] = state
-
-                    decoded_multi = decode_can_multi(can_id, d)
                     if decoded_multi is not None:
                         latest.update(decoded_multi)
 

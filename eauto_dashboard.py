@@ -34,6 +34,7 @@ from ui.callbacks import (
     register_temperature_chart_callback,
 )
 from ui.controls import build_time_window_controls, build_firmware_upload_card, build_can_config_card
+from ui.callbacks.temperature_chart import build_temperature_graph
 
 # ═══════════════════════════════════════════════════════════════════════════════
 #  CONFIG  (command-line args → pre-fill UI defaults only, no auto-connect)
@@ -123,7 +124,7 @@ app.layout = html.Div(
         # ── Temperatursensoren Balkendiagramm ─────────────────────────────────────────
         html.Div(style={**_CARD, "marginTop": "14px"}, children=[
             html.Div("Temperatursensoren (ADC 0x538)", style=_SEC),
-            html.Div(id="temperature_chart"),
+            build_temperature_graph(),
         ]),
         dcc.Interval(id="tick", interval=INTERVAL, n_intervals=0),
         dcc.Store(id="snap", storage_type="memory"),

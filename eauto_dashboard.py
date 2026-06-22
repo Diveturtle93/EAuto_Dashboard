@@ -30,6 +30,7 @@ from ui.callbacks import (
     register_can_config_callback,
     register_ecu_preset_callback,
     register_export_csv_callback,
+    register_firmware_upload_callback,
 )
 from ui.controls import build_time_window_controls, build_firmware_upload_card, build_can_config_fields
 
@@ -134,6 +135,7 @@ register_can_banner_callback(app)
 register_can_config_callback(app, can_manager, latest, lock)
 register_ecu_preset_callback(app)
 register_export_csv_callback(app)
+register_firmware_upload_callback(app, can_manager, latest, lock)
 # ═══════════════════════════════════════════════════════════════════════════════
 
 # ═══════════════════════════════════════════════════════════════════════════════

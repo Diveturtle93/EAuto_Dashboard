@@ -30,6 +30,7 @@ from ui.callbacks import (
     register_can_config_callback,
     register_ecu_preset_callback,
     register_export_csv_callback,
+    register_firmware_upload_callback,
     register_status_callback,
     register_temperature_chart_callback,
 )
@@ -170,6 +171,7 @@ register_can_banner_callback(app)
 register_can_config_callback(app, can_manager, latest, lock)
 register_ecu_preset_callback(app)
 register_export_csv_callback(app)
+register_firmware_upload_callback(app, can_manager, latest, lock)
 register_status_callback(app)
 register_temperature_chart_callback(app)
 # ═══════════════════════════════════════════════════════════════════════════════

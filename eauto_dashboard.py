@@ -46,22 +46,13 @@ DEFAULT_BITRATE   = int(sys.argv[3]) if len(sys.argv) > 3 else 500000
 INTERVAL          = 500         # ms dashboard refresh
 
 # ═══════════════════════════════════════════════════════════════════════════════
-#  DATA STORE
+#  DATA STORE  –  Projekt-spezifische Felder hier ergänzen
 # ═══════════════════════════════════════════════════════════════════════════════
 lock   = threading.Lock()
 
-# ── latest snapshot (all fields) ────────────────────────────────────────────
 latest = dict(
     last_rx_ms=0,
     can_adapter_connected=False,
-    bms_status_code=None,
-    bms_state="Unknown",
-    motor_status_code=None,
-    motor_state="Unknown",
-    temp_adc_1=None,
-    temp_adc_2=None,
-    temp_adc_3=None,
-    temp_adc_4=None,
 )
 # ═══════════════════════════════════════════════════════════════════════════════
 
@@ -132,11 +123,7 @@ app.layout = html.Div(
                     children=[
                         html.Div(style={"paddingTop": "14px"}, children=[
                             build_time_window_controls(),
-                            html.Div(id="status", style={"marginTop": "12px"}),
-                            html.Div(style={**_CARD, "marginTop": "14px"}, children=[
-                                html.Div("Temperatursensoren (ADC 0x538)", style=_SEC),
-                                html.Div(id="temperature_chart"),
-                            ]),
+                            # Eigene Anzeigen hier einfügen
                         ]),
                     ],
                 ),

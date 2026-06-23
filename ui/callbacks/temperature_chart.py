@@ -3,13 +3,20 @@ from dash import Input, Output, Patch, dcc
 
 _ADC_MAX = 4095  # 12-bit ADC
 _LABELS = ["T1", "T2", "T3", "T4"]
-_COLORS = ["#3498db", "#2ecc71", "#e67e22", "#e74c3c"]
+_COLORS = ["#f97316", "#60a5fa", "#34d399", "#f87171"]
 _LAYOUT = dict(
-    yaxis=dict(range=[0, _ADC_MAX], title="ADC-Wert (12-bit)"),
-    xaxis=dict(title="Temperatursensor"),
+    yaxis=dict(
+        range=[0, _ADC_MAX], title="ADC-Wert (12-bit)",
+        color="#9099a8", gridcolor="#252836", linecolor="#252836", zerolinecolor="#252836",
+    ),
+    xaxis=dict(
+        title="Temperatursensor",
+        color="#9099a8", gridcolor="#252836", linecolor="#252836",
+    ),
     margin=dict(t=30, b=40, l=50, r=20),
-    plot_bgcolor="#ffffff",
-    paper_bgcolor="#ffffff",
+    plot_bgcolor="#161922",
+    paper_bgcolor="#161922",
+    font=dict(color="#9099a8"),
     height=280,
     showlegend=False,
 )

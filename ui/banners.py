@@ -4,22 +4,22 @@ from dash import html
 def format_can_status(snap, is_connected):
     """Returns the CAN status pill for the header (4 states: grey/yellow/green/red)."""
     if not is_connected:
-        return _pill("Kein Adapter", "#f0f0f0", "#bbb", "#888")
+        return _pill("Kein Adapter", "#1a1d27", "#4a5060", "#6b7280")
 
     L = snap.get("L", {}) if snap else {}
     if not L.get("can_adapter_connected", False):
         # Adapter wurde nach Verbindungsaufbau getrennt (Reconnect läuft)
-        return _pill("Adapter getrennt", "#fef9ec", "#e6a817", "#b7830d")
+        return _pill("Adapter getrennt", "#1f1808", "#e6a817", "#f0b429")
 
     last_rx = L.get("last_rx_ms", 0)
     if last_rx == 0:
-        return _pill("CAN OK", "#eafaf1", "#27ae60", "#1e8449")
+        return _pill("CAN OK", "#0a1f14", "#27ae60", "#2ecc71")
 
     pkt_age = snap["now"] - last_rx / 1000.0
     if pkt_age < 3.0:
-        return _pill("CAN OK", "#eafaf1", "#27ae60", "#1e8449")
+        return _pill("CAN OK", "#0a1f14", "#27ae60", "#2ecc71")
 
-    return _pill(f"CAN Fehler ({pkt_age:.0f} s)", "#fdf0ee", "#c0392b", "#c0392b")
+    return _pill(f"CAN Fehler ({pkt_age:.0f} s)", "#1f0a09", "#c0392b", "#e05a4a")
 
 
 def _pill(text, bg, dot, text_color):

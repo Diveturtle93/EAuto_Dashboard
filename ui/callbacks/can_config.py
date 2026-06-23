@@ -7,12 +7,12 @@ from backend.can_bus import CanConfig
 _BTN_CONNECT = {
     "fontSize": "12px", "padding": "6px 18px",
     "borderRadius": "5px", "cursor": "pointer", "fontWeight": "600",
-    "border": "1px solid #27ae60", "background": "#eafaf1", "color": "#1e8449",
+    "border": "1px solid #f97316", "background": "#1f1108", "color": "#f97316",
 }
 _BTN_DISCONNECT = {
     "fontSize": "12px", "padding": "6px 18px",
     "borderRadius": "5px", "cursor": "pointer", "fontWeight": "600",
-    "border": "1px solid #c0392b", "background": "#fdf0ee", "color": "#c0392b",
+    "border": "1px solid #c0392b", "background": "#1a0a09", "color": "#e05a4a",
 }
 
 

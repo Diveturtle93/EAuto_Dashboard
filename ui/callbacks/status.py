@@ -26,10 +26,10 @@ COLOR_MAP = {
 
 
 def register_status_callback(app):
-    def make_field(label, value, background="#ffffff", color="#333"):
+    def make_field(label, value, background="#161922", color="#f0f1f5"):
         return html.Div(
             children=[
-                html.Div(label, style={"fontSize": "12px", "fontWeight": "700", "marginBottom": "6px"}),
+                html.Div(label, style={"fontSize": "12px", "fontWeight": "700", "marginBottom": "6px", "color": "#9099a8"}),
                 html.Div(value, style={
                     "background": background,
                     "color": color,

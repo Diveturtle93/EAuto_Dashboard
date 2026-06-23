@@ -68,26 +68,37 @@ latest = dict(
 #  LAYOUT BUILDING BLOCKS
 # ═══════════════════════════════════════════════════════════════════════════════
 _CARD = {
-    "background":  "#ffffff",
+    "background":   "#161922",
     "borderRadius": "10px",
-    "boxShadow":   "0 1px 5px rgba(0,0,0,.10)",
-    "padding":     "12px 14px",
+    "boxShadow":    "0 1px 8px rgba(0,0,0,.40)",
+    "border":       "1px solid #252836",
+    "padding":      "12px 14px",
     "marginBottom": "14px",
 }
 _SEC = {
     "fontSize": "11px", "fontWeight": "700",
-    "letterSpacing": "0.07em", "color": "#888",
+    "letterSpacing": "0.07em", "color": "#f97316",
     "textTransform": "uppercase", "marginBottom": "6px",
+}
+_TAB_STYLE = {
+    "background": "#0d0f14", "color": "#9099a8",
+    "border": "1px solid #252836", "padding": "6px 16px", "fontSize": "13px",
+}
+_TAB_SELECTED = {
+    "background": "#161922", "color": "#f97316",
+    "borderTop": "2px solid #f97316", "border": "1px solid #252836",
+    "padding": "6px 16px", "fontSize": "13px",
 }
 
 # ═══════════════════════════════════════════════════════════════════════════════
 #  Dashboard Layout
 # ═══════════════════════════════════════════════════════════════════════════════
 app = Dash(__name__)
+
 app.layout = html.Div(
     style={"fontFamily": "'Inter', 'Segoe UI', sans-serif",
-           "background": "#eef0f4", "minHeight": "100vh", "padding": "14px 24px",
-           "maxWidth": "1300px", "margin": "0 auto"},
+           "background": "#0d0f14", "minHeight": "100vh", "padding": "14px 24px",
+           "maxWidth": "1300px", "margin": "0 auto", "color": "#f0f1f5"},
     children=[
 
         # ── Page title + CAN-Konfiguration ──────────────────────────────────────────────
@@ -97,7 +108,7 @@ app.layout = html.Div(
                    "gap": "16px", "flexWrap": "wrap"},
             children=[
                 html.H2("EAuto Live Dashboard",
-                        style={"margin": "0", "fontSize": "16px", "color": "#222",
+                        style={"margin": "0", "fontSize": "16px", "color": "#f0f1f5",
                                "fontWeight": "700", "whiteSpace": "nowrap"}),
                 html.Div(style={"flex": "1"}),
                 build_can_config_fields(DEFAULT_INTERFACE, DEFAULT_CHANNEL, DEFAULT_BITRATE),
@@ -110,11 +121,13 @@ app.layout = html.Div(
             id="main_tabs",
             value="tab_dashboard",
             style={"marginBottom": "14px"},
-            colors={"border": "#dfe3ea", "primary": "#2980b9", "background": "#eef0f4"},
+            colors={"border": "#252836", "primary": "#f97316", "background": "#0d0f14"},
             children=[
                 dcc.Tab(
                     label="Dashboard",
                     value="tab_dashboard",
+                    style=_TAB_STYLE,
+                    selected_style=_TAB_SELECTED,
                     children=[
                         html.Div(style={"paddingTop": "14px"}, children=[
                             build_time_window_controls(),
@@ -129,6 +142,8 @@ app.layout = html.Div(
                 dcc.Tab(
                     label="Bootloader",
                     value="tab_bootloader",
+                    style=_TAB_STYLE,
+                    selected_style=_TAB_SELECTED,
                     children=[
                         html.Div(style={"paddingTop": "14px"}, children=[
                             build_firmware_upload_card(),

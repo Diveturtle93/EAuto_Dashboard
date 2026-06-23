@@ -2,9 +2,10 @@ from dash import dcc, html
 
 
 _CARD = {
-    "background": "#ffffff",
+    "background": "#161922",
     "borderRadius": "10px",
-    "boxShadow": "0 1px 5px rgba(0,0,0,.10)",
+    "boxShadow": "0 1px 8px rgba(0,0,0,.40)",
+    "border": "1px solid #252836",
     "padding": "12px 14px",
     "marginBottom": "14px",
 }
@@ -12,21 +13,23 @@ _SEC = {
     "fontSize": "11px",
     "fontWeight": "700",
     "letterSpacing": "0.07em",
-    "color": "#888",
+    "color": "#f97316",
     "textTransform": "uppercase",
     "marginBottom": "6px",
 }
 _LABEL = {
     "fontSize": "11px",
     "fontWeight": "700",
-    "color": "#555",
+    "color": "#9099a8",
     "marginBottom": "4px",
 }
 _INPUT = {
     "width": "100%",
     "padding": "7px 10px",
     "borderRadius": "6px",
-    "border": "1px solid #d1d5db",
+    "border": "1px solid #252836",
+    "background": "#0d0f14",
+    "color": "#f0f1f5",
     "fontSize": "13px",
     "boxSizing": "border-box",
 }
@@ -53,12 +56,12 @@ _BITRATES = [
 _BTN_CONNECT = {
     "fontSize": "12px", "padding": "6px 18px",
     "borderRadius": "5px", "cursor": "pointer", "fontWeight": "600",
-    "border": "1px solid #27ae60", "background": "#eafaf1", "color": "#1e8449",
+    "border": "1px solid #f97316", "background": "#1f1108", "color": "#f97316",
 }
 _BTN_DISCONNECT = {
     "fontSize": "12px", "padding": "6px 18px",
     "borderRadius": "5px", "cursor": "pointer", "fontWeight": "600",
-    "border": "1px solid #c0392b", "background": "#fdf0ee", "color": "#c0392b",
+    "border": "1px solid #c0392b", "background": "#1a0a09", "color": "#e05a4a",
 }
 
 
@@ -87,10 +90,10 @@ def build_time_window_controls():
                         ],
                         value=0,
                         inline=True,
-                        inputStyle={"accentColor": "#2980b9", "cursor": "pointer"},
+                        inputStyle={"accentColor": "#f97316", "cursor": "pointer"},
                         labelStyle={
                             "fontSize": "12px",
-                            "color": "#444",
+                            "color": "#9099a8",
                             "cursor": "pointer",
                             "userSelect": "none",
                         },
@@ -102,10 +105,10 @@ def build_time_window_controls():
                             "fontSize": "11px",
                             "padding": "4px 12px",
                             "borderRadius": "5px",
-                            "border": "1px solid #2980b9",
-                            "background": "#eaf4fb",
+                            "border": "1px solid #f97316",
+                            "background": "#1f1108",
                             "cursor": "pointer",
-                            "color": "#2471a3",
+                            "color": "#f97316",
                             "fontWeight": "600",
                             "marginLeft": "auto",
                         },
@@ -118,9 +121,9 @@ def build_time_window_controls():
                             "padding": "4px 12px",
                             "borderRadius": "5px",
                             "border": "1px solid #c0392b",
-                            "background": "#fdf0ee",
+                            "background": "#1a0a09",
                             "cursor": "pointer",
-                            "color": "#c0392b",
+                            "color": "#e05a4a",
                             "fontWeight": "600",
                         },
                     ),
@@ -128,7 +131,7 @@ def build_time_window_controls():
             ),
             html.P(
                 "Tip: scroll to zoom on any graph. Double-click to reset.",
-                style={"color": "#aaa", "fontSize": "11px", "marginTop": "4px"},
+                style={"color": "#5a6070", "fontSize": "11px", "marginTop": "4px"},
             ),
         ]
     )
@@ -173,7 +176,7 @@ def build_can_config_fields(default_interface="pcan", default_channel="PCAN_USBB
                 n_clicks=0,
                 style=_BTN_CONNECT,
             ),
-            html.Div(id="can_connect_status", style={"fontSize": "12px", "color": "#555"}),
+            html.Div(id="can_connect_status", style={"fontSize": "12px", "color": "#9099a8"}),
             dcc.Store(id="can_connected", data=False),
         ],
     )
@@ -182,7 +185,7 @@ def build_can_config_fields(default_interface="pcan", default_channel="PCAN_USBB
 def build_firmware_upload_card():
     """Build firmware upload card with bootloader configuration."""
     return html.Div(
-        style={**_CARD, "background": "#fcfcff", "border": "1px solid #dfe3ea"},
+        style={**_CARD},
         children=[
             html.P("Firmware Update", style={**_SEC, "marginBottom": "8px"}),
             dcc.Upload(
@@ -199,10 +202,10 @@ def build_firmware_upload_card():
                     "borderWidth": "1px",
                     "borderStyle": "dashed",
                     "borderRadius": "10px",
-                    "borderColor": "#95a5a6",
-                    "backgroundColor": "#fafafa",
+                    "borderColor": "#3d4560",
+                    "backgroundColor": "#0d0f14",
                     "textAlign": "center",
-                    "color": "#333",
+                    "color": "#9099a8",
                     "cursor": "pointer",
                     "overflow": "hidden",
                 },
@@ -210,19 +213,19 @@ def build_firmware_upload_card():
             ),
             html.Div(
                 style={
-                    "background": "#f0f4ff",
-                    "border": "1px solid #c7d2fe",
+                    "background": "#0f1420",
+                    "border": "1px solid #1d2535",
                     "borderRadius": "8px",
                     "padding": "14px 16px",
                     "marginTop": "12px",
                     "fontSize": "12px",
-                    "color": "#374151",
+                    "color": "#9099a8",
                     "lineHeight": "1.7",
                 },
                 children=[
                     html.P(
                         "So wird ein Update durchgeführt:",
-                        style={"fontWeight": "700", "margin": "0 0 6px 0", "fontSize": "12px"},
+                        style={"fontWeight": "700", "margin": "0 0 6px 0", "fontSize": "12px", "color": "#f0f1f5"},
                     ),
                     html.Ol(
                         children=[
@@ -235,7 +238,7 @@ def build_firmware_upload_card():
                     ),
                     html.P(
                         "Bedeutung der CAN-IDs:",
-                        style={"fontWeight": "700", "margin": "0 0 4px 0", "fontSize": "12px"},
+                        style={"fontWeight": "700", "margin": "0 0 4px 0", "fontSize": "12px", "color": "#f0f1f5"},
                     ),
                     html.Ul(
                         children=[
@@ -288,7 +291,7 @@ def build_firmware_upload_card():
                             style={
                                 "fontSize": "11px",
                                 "fontWeight": "700",
-                                "color": "#555",
+                                "color": "#9099a8",
                                 "marginBottom": "4px",
                             },
                         ),
@@ -300,7 +303,9 @@ def build_firmware_upload_card():
                                 "width": "100%",
                                 "padding": "8px 10px",
                                 "borderRadius": "6px",
-                                "border": "1px solid #d1d5db",
+                                "border": "1px solid #252836",
+                                "background": "#0d0f14",
+                                "color": "#f0f1f5",
                             },
                         ),
                     ]),
@@ -310,7 +315,7 @@ def build_firmware_upload_card():
                             style={
                                 "fontSize": "11px",
                                 "fontWeight": "700",
-                                "color": "#555",
+                                "color": "#9099a8",
                                 "marginBottom": "4px",
                             },
                         ),
@@ -322,7 +327,9 @@ def build_firmware_upload_card():
                                 "width": "100%",
                                 "padding": "8px 10px",
                                 "borderRadius": "6px",
-                                "border": "1px solid #d1d5db",
+                                "border": "1px solid #252836",
+                                "background": "#0d0f14",
+                                "color": "#f0f1f5",
                             },
                         ),
                     ]),

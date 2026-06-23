@@ -1,0 +1,72 @@
+/* ── Dash 4.x Design Tokens – Dark theme ────────────────────
+   These variables are used by ALL Dash 4 components (Dropdown,
+   Loading, etc.) so overriding them here themes everything at once.
+   assets/ CSS loads AFTER the component bundles, so it always wins.
+   ──────────────────────────────────────────────────────────────── */
+:root {
+    --Dash-Fill-Inverse-Strong:    #161922;   /* dropdown / popup background  */
+    --Dash-Stroke-Strong:          #252836;   /* borders                       */
+    --Dash-Text-Strong:            #f0f1f5;   /* primary text                  */
+    --Dash-Text-Weak:              #9099a8;   /* secondary text                */
+    --Dash-Fill-Interactive-Strong:#f97316;   /* accent / focus orange         */
+    --Dash-Fill-Interactive-Weak:  #1f1108;   /* subtle orange hover bg        */
+    --Dash-Text-Disabled:          #5a6070;   /* placeholder / disabled text   */
+    --Dash-Fill-Disabled:          #252836;   /* dividers / disabled bg        */
+    --Dash-Shading-Strong:         rgba(0,0,0,.6);
+    --Dash-Shading-Weak:           rgba(0,0,0,.3);
+}
+
+/* ── Body ──────────────────────────────────────────────────── */
+body {
+    background: #0d0f14 !important;
+    color: #f0f1f5;
+}
+
+/* ── Dropdown button – slightly darker than popup for depth ── */
+.dash-dropdown {
+    background: #0d0f14 !important;
+}
+.dash-dropdown:hover {
+    border-color: #f97316 !important;
+}
+
+/* ── Dropdown option hover / selected states ──────────────── */
+.dash-dropdown-option:hover,
+.dash-dropdown-option[data-highlighted] {
+    background: #1f1108 !important;
+    color: #f97316 !important;
+    cursor: pointer;
+}
+.dash-dropdown-option[aria-selected="true"],
+.dash-dropdown-option[data-selected] {
+    background: #2a1508 !important;
+    color: #f97316 !important;
+}
+
+/* ── Text inputs ───────────────────────────────────────────── */
+input[type="text"] {
+    background: #0d0f14 !important;
+    color: #f0f1f5 !important;
+    border-color: #252836 !important;
+}
+input[type="text"]:focus {
+    outline: none;
+    border-color: #f97316 !important;
+    box-shadow: 0 0 0 2px rgba(249,115,22,.2) !important;
+}
+
+/* ── Dash Tabs ─────────────────────────────────────────────── */
+.dash-tabs-container {
+    background: #0d0f14 !important;
+}
+
+/* ── Upload zone ───────────────────────────────────────────── */
+.dash-upload {
+    background: #0d0f14 !important;
+}
+
+/* ── Scrollbar ─────────────────────────────────────────────── */
+::-webkit-scrollbar { width: 6px; height: 6px; }
+::-webkit-scrollbar-track { background: #0d0f14; }
+::-webkit-scrollbar-thumb { background: #252836; border-radius: 3px; }
+::-webkit-scrollbar-thumb:hover { background: #f97316; }

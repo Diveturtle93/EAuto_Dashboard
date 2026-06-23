@@ -2,6 +2,7 @@ import base64
 import os
 import re
 import tempfile
+import threading
 import time
 
 from dash import Input, Output, State, html
@@ -20,6 +21,21 @@ _CONNECT_TIMEOUT = 30     # seconds to wait for bootloader to become available
 _ERASE_CHUNK     = 32768  # 32 KB per PROGRAM_CLEAR call  – matches BootCommander
 _WRITE_CHUNK     = 256    # 256 B  per BltSessionWriteData – matches BootCommander
 
+# Global flash progress state – written by flash thread, read by poll callback
+_flash_state = {
+    "running":      False,
+    "phase":        "idle",   # idle | connecting | erasing | writing | done
+    "erase_done":   0,
+    "erase_total":  1,
+    "write_done":   0,
+    "write_total":  1,
+    "result":       None,     # Dash component shown when phase == "done"
+}
+
+
+def _set_state(**kwargs):
+    _flash_state.update(kwargs)
+
 
 def _parse_can_id(value):
     """Parse a hex (0x...) or decimal string into an integer CAN ID."""
@@ -34,7 +50,6 @@ def _openblt_device(interface, channel):
     device_name = _INTERFACE_MAP.get(interface.lower(), "")
     device_channel = 0
     if interface.lower() == "pcan":
-        # PCAN_USBBUS1 → channel 0, PCAN_USBBUS2 → channel 1, …
         m = re.search(r"(\d+)$", channel)
         if m:
             device_channel = max(0, int(m.group(1)) - 1)
@@ -46,8 +61,95 @@ def _openblt_device(interface, channel):
     return device_name, device_channel
 
 
+def _single_bar(label, pct, sub):
+    """Render one labeled progress bar row."""
+    color = "#2980b9"
+    return html.Div(
+        style={"marginBottom": "10px"},
+        children=[
+            html.Div(
+                style={
+                    "display": "flex",
+                    "justifyContent": "space-between",
+                    "alignItems": "baseline",
+                    "marginBottom": "5px",
+                },
+                children=[
+                    html.Span(label, style={"fontSize": "12px", "fontWeight": "700", "color": "#333"}),
+                    html.Span(f"{pct:.0f} %", style={"fontSize": "13px", "fontWeight": "700", "color": color}),
+                ],
+            ),
+            html.Div(
+                style={"background": "#dde3ea", "borderRadius": "5px", "height": "10px", "overflow": "hidden"},
+                children=[
+                    html.Div(style={
+                        "background": color,
+                        "width": f"{pct:.1f}%",
+                        "height": "100%",
+                        "borderRadius": "5px",
+                        "transition": "width 0.2s ease",
+                    })
+                ],
+            ),
+            html.Div(sub, style={"fontSize": "11px", "color": "#888", "marginTop": "3px"}),
+        ],
+    )
+
+
+def _progress_bar_ui():
+    """Build progress bar component from current _flash_state."""
+    phase = _flash_state["phase"]
+    if phase not in ("connecting", "erasing", "writing"):
+        return html.Div()
+
+    if phase == "connecting":
+        erase_pct = 0.0
+        erase_sub = "–"
+        write_pct = 0.0
+        write_sub = "–"
+    elif phase == "erasing":
+        done  = _flash_state["erase_done"]
+        total = max(_flash_state["erase_total"], 1)
+        erase_pct = (done / total) * 100.0
+        erase_sub = f"{done:,} / {total:,} Bytes"
+        write_pct = 0.0
+        write_sub = "–"
+    else:  # writing
+        erase_pct = 100.0
+        erase_sub = f"{_flash_state['erase_total']:,} Bytes"
+        done  = _flash_state["write_done"]
+        total = max(_flash_state["write_total"], 1)
+        write_pct = (done / total) * 100.0
+        write_sub = f"{done:,} / {total:,} Bytes"
+
+    status_label = {
+        "connecting": "Verbinde mit Bootloader …",
+        "erasing":    "Lösche Flash …",
+        "writing":    "Schreibe Firmware …",
+    }[phase]
+
+    return html.Div(
+        style={
+            "background": "#f7f9fc",
+            "border": "1px solid #dfe3ea",
+            "borderRadius": "8px",
+            "padding": "12px 14px",
+            "marginTop": "10px",
+        },
+        children=[
+            html.Div(
+                status_label,
+                style={"fontSize": "11px", "fontWeight": "700", "color": "#888",
+                       "textTransform": "uppercase", "letterSpacing": "0.06em", "marginBottom": "10px"},
+            ),
+            _single_bar("Flash löschen", erase_pct, erase_sub),
+            _single_bar("Firmware schreiben", write_pct, write_sub),
+        ],
+    )
+
+
 def _run_flash(tmp_path, filename, device_name, device_channel, baudrate, transmit_id, receive_id):
-    """Execute the OpenBLT firmware update sequence. Returns a Dash component."""
+    """Execute the OpenBLT firmware update sequence. Returns a Dash component. Updates _flash_state for progress."""
     try:
         import openblt  # lazy import – libopenblt.dll must be present at flash time
     except (OSError, ImportError) as exc:
@@ -113,6 +215,8 @@ def _run_flash(tmp_path, filename, device_name, device_channel, baudrate, transm
                     ),
                 ])
 
+        total_bytes = sum(seg_len for _, _, seg_len in segments)
+
         session_settings = openblt.BltSessionSettingsXcpV10()
         session_settings.timeoutT4 = 60000  # erase timeout 60 s for large flash regions
 
@@ -149,7 +253,6 @@ def _run_flash(tmp_path, filename, device_name, device_channel, baudrate, transm
                 )
 
             try:
-                total_bytes = 0
                 segment_info = []
 
                 # ── Pass 1: erase ALL segments before writing any ──────────────────
@@ -157,6 +260,8 @@ def _run_flash(tmp_path, filename, device_name, device_channel, baudrate, transm
                 # The OpenBLT bootloader builds its valid-app checksum based on the
                 # full programmed address range; interleaving erases with writes causes
                 # it to compute the checksum over an incomplete range.
+                erase_done = 0
+                _set_state(phase="erasing", erase_done=0, erase_total=total_bytes)
                 for seg_data, seg_addr, seg_len in segments:
                     remaining = seg_len
                     addr = seg_addr
@@ -167,10 +272,14 @@ def _run_flash(tmp_path, filename, device_name, device_channel, baudrate, transm
                                 f"Fehler: Flash-Löschung fehlgeschlagen (Adresse 0x{addr:08X}).",
                                 style={"color": "#c0392b"},
                             )
-                        addr      += chunk
-                        remaining -= chunk
+                        addr       += chunk
+                        remaining  -= chunk
+                        erase_done += chunk
+                        _set_state(erase_done=erase_done)
 
                 # ── Pass 2: write ALL segments ────────────────────────────────────
+                write_done = 0
+                _set_state(phase="writing", write_done=0, write_total=total_bytes)
                 for seg_data, seg_addr, seg_len in segments:
                     remaining = seg_len
                     addr      = seg_addr
@@ -184,12 +293,12 @@ def _run_flash(tmp_path, filename, device_name, device_channel, baudrate, transm
                                 f"Fehler: Schreiben fehlgeschlagen (Adresse 0x{addr:08X}).",
                                 style={"color": "#c0392b"},
                             )
-                        addr      += chunk
-                        offset    += chunk
-                        remaining -= chunk
-
+                        addr       += chunk
+                        offset     += chunk
+                        remaining  -= chunk
+                        write_done += chunk
+                        _set_state(write_done=write_done)
                     segment_info.append((seg_addr, seg_addr + seg_len - 1, seg_len))
-                    total_bytes += seg_len
 
                 seg_lines = [
                     html.Div(
@@ -227,9 +336,37 @@ def _run_flash(tmp_path, filename, device_name, device_channel, baudrate, transm
         openblt.firmware_terminate()
 
 
+def _flash_thread(tmp_path, filename, can_manager, cfg, latest, lock,
+                  device_name, device_channel, transmit_id, receive_id):
+    """Background thread: runs flash, restores CAN bus, then marks state as done."""
+    try:
+        result = _run_flash(
+            tmp_path, filename,
+            device_name, device_channel,
+            cfg.bitrate, transmit_id, receive_id,
+        )
+    except Exception as exc:
+        result = html.Span(f"Unerwarteter Fehler: {exc}", style={"color": "#c0392b"})
+    finally:
+        # Give the target time to store the checksum, reset, and start the app.
+        time.sleep(3.0)
+        try:
+            can_manager.start(cfg, latest, lock)
+        except Exception:
+            pass
+        try:
+            os.unlink(tmp_path)
+        except OSError:
+            pass
+
+    _set_state(running=False, phase="done", result=result)
+
+
 def register_firmware_upload_callback(app, can_manager, latest, lock):
+
     @app.callback(
         Output("bootloader_status", "children"),
+        Output("flash_poll", "disabled"),
         Output("firmware_upload", "contents"),
         Output("firmware_upload", "filename"),
         Input("firmware_upload", "contents"),
@@ -243,19 +380,25 @@ def register_firmware_upload_callback(app, can_manager, latest, lock):
             return html.Span(
                 "Bitte zuerst eine Firmware-Datei auswählen.",
                 style={"color": "#e67e22"},
-            ), None, None
+            ), True, None, None
+
+        if _flash_state["running"]:
+            return html.Span(
+                "Flash-Vorgang läuft bereits – bitte warten.",
+                style={"color": "#e67e22"},
+            ), True, None, None
 
         try:
             transmit_id = _parse_can_id(rx_id_str)  # host transmits to bootloader RX ID
             receive_id  = _parse_can_id(tx_id_str)  # host receives from bootloader TX ID
         except (ValueError, TypeError):
-            return html.Span("Fehler: Ungültige CAN-ID eingegeben.", style={"color": "#c0392b"}), None, None
+            return html.Span("Fehler: Ungültige CAN-ID eingegeben.", style={"color": "#c0392b"}), True, None, None
 
         if not can_manager.is_running:
             return html.Span(
                 "Fehler: CAN-Bus nicht verbunden. Bitte zuerst im Konfigurationsfeld verbinden.",
                 style={"color": "#c0392b"},
-            ), None, None
+            ), True, None, None
 
         cfg = can_manager.config
         device_name, device_channel = _openblt_device(cfg.interface, cfg.channel)
@@ -265,43 +408,51 @@ def register_firmware_upload_callback(app, can_manager, latest, lock):
                 f"Fehler: Interface '{cfg.interface}' wird von OpenBLT nicht unterstützt "
                 f"(unterstützt: {', '.join(_INTERFACE_MAP.keys())}).",
                 style={"color": "#c0392b"},
-            ), None, None
+            ), True, None, None
 
         try:
             _, b64 = contents.split(",", 1)
             file_bytes = base64.b64decode(b64)
         except Exception as exc:
-            return html.Span(f"Fehler beim Lesen der Datei: {exc}", style={"color": "#c0392b"}), None, None
+            return html.Span(f"Fehler beim Lesen der Datei: {exc}", style={"color": "#c0392b"}), True, None, None
 
-        tmp_path = None
         try:
             with tempfile.NamedTemporaryFile(suffix=".srec", delete=False) as f:
                 tmp_path = f.name
                 f.write(file_bytes)
-
-            # OpenBLT needs exclusive access – pause the CAN receive thread.
-            # A short delay after stop() ensures the PCAN driver is fully released
-            # before libopenblt opens it.
-            can_manager.stop()
-            time.sleep(0.5)
-            try:
-                result = _run_flash(
-                    tmp_path, filename,
-                    device_name, device_channel,
-                    cfg.bitrate, transmit_id, receive_id,
-                )
-            finally:
-                # Give the target time to store the checksum, reset, and start the app.
-                time.sleep(3.0)
-                can_manager.start(cfg, latest, lock)
-            return result, None, None
-
         except Exception as exc:
-            return html.Span(f"Unerwarteter Fehler: {exc}", style={"color": "#c0392b"}), None, None
+            return html.Span(f"Fehler beim Speichern der Datei: {exc}", style={"color": "#c0392b"}), True, None, None
 
-        finally:
-            if tmp_path:
-                try:
-                    os.unlink(tmp_path)
-                except OSError:
-                    pass
+        # All checks passed – initialise state and hand off to background thread
+        _set_state(
+            running=True, phase="connecting", result=None,
+            erase_done=0, erase_total=1, write_done=0, write_total=1,
+        )
+
+        # OpenBLT needs exclusive access – pause the CAN receive thread first.
+        can_manager.stop()
+        time.sleep(0.5)
+
+        threading.Thread(
+            target=_flash_thread,
+            args=(tmp_path, filename, can_manager, cfg, latest, lock,
+                  device_name, device_channel, transmit_id, receive_id),
+            daemon=True,
+        ).start()
+
+        # Clear previous error text; enable poll interval
+        return "", False, None, None
+
+    @app.callback(
+        Output("flash_progress_area", "children"),
+        Output("flash_poll", "disabled", allow_duplicate=True),
+        Input("flash_poll", "n_intervals"),
+        prevent_initial_call=True,
+    )
+    def _poll_flash_progress(_):
+        phase = _flash_state["phase"]
+        if phase == "idle":
+            raise PreventUpdate
+        if phase == "done":
+            return _flash_state["result"], True
+        return _progress_bar_ui(), False

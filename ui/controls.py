@@ -335,6 +335,8 @@ def build_firmware_upload_card():
                     ]),
                 ],
             ),
+            dcc.Interval(id="flash_poll", interval=250, disabled=True, n_intervals=0),
+            html.Div(id="flash_progress_area"),
             dcc.Loading(
                 id="bootloader_loading",
                 type="dot",

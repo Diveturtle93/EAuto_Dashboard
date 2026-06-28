@@ -14,59 +14,174 @@
     --Dash-Fill-Disabled:          #252836;   /* dividers / disabled bg        */
     --Dash-Shading-Strong:         rgba(0,0,0,.6);
     --Dash-Shading-Weak:           rgba(0,0,0,.3);
+
+    /* ── App-specific tokens – change these to switch color scheme ── */
+
+    /* Backgrounds */
+    --bg-page:         #0d0f14;   /* page / input background */
+    --bg-card:         #161922;   /* card / panel background */
+    --bg-raised:       #0f1420;   /* slightly elevated surface (info boxes) */
+    --bg-subtle:       #1a1d26;   /* disabled / muted background */
+
+    /* Borders */
+    --border:          #252836;   /* standard border */
+    --border-faint:    #3d4560;   /* upload zone, very subtle */
+    --border-inactive: #3a3f50;   /* inactive / disabled button border */
+    --border-info:     #1d2535;   /* info box border */
+
+    /* Text */
+    --text:            #f0f1f5;   /* primary text */
+    --text-secondary:  #9099a8;   /* secondary / labels */
+    --text-muted:      #5a6070;   /* muted / hints / disabled */
+    --text-soft:       #c8cdd6;   /* slightly muted primary */
+    --text-inactive:   #4a5060;   /* clearly inactive */
+
+    /* Accent – Orange */
+    --accent:          #f97316;
+    --accent-bg:       #1f1108;   /* accent hover / active background */
+    --accent-bg-deep:  #140e04;   /* deep accent background */
+    --accent-glow:     rgba(249,115,22,.2);
+
+    /* Warning – Amber */
+    --warn:            #f5c842;   /* warning amber */
+    --warn-bg:         #1e1505;   /* warning amber background */
+    --warn-border:     #8a5c00;   /* warning amber border */
+
+    /* Success – Green */
+    --ok:              #22c55e;   /* success green (battery test) */
+    --ok-bg:           #0d1f14;   /* success green background */
+    --ok-alt:          #27ae60;   /* alt success green (kurzschlusstest) */
+    --ok-alt-bg:       #0d2e1a;   /* alt success green background */
+
+    /* Error – Red */
+    --err:             #e74c3c;   /* error red */
+    --err-text:        #e05a4a;   /* lighter error text */
+    --err-strong:      #c0392b;   /* darker error red */
+    --err-bg:          #2e0d0d;   /* error red background */
+    --err-bg-alt:      #1a0a09;   /* darker error background */
+
+    /* Info – Blue */
+    --info:            #3a8fd4;   /* info blue */
+    --info-border:     #3a6ea5;   /* info blue border */
+    --info-bg:         #0d1520;   /* info blue background */
+    --info-bg-deep:    #0d1f33;   /* deeper info blue background */
+
+    /* Shadows */
+    --shadow-card:     rgba(0,0,0,.40);
 }
 
 /* ── Body ──────────────────────────────────────────────────── */
 body {
-    background: #0d0f14 !important;
-    color: #f0f1f5;
+    background: var(--bg-page) !important;
+    color: var(--text);
 }
 
 /* ── Dropdown button – slightly darker than popup for depth ── */
 .dash-dropdown {
-    background: #0d0f14 !important;
+    background: var(--bg-page) !important;
 }
 .dash-dropdown:hover {
-    border-color: #f97316 !important;
+    border-color: var(--accent) !important;
 }
 
 /* ── Dropdown option hover / selected states ──────────────── */
 .dash-dropdown-option:hover,
 .dash-dropdown-option[data-highlighted] {
-    background: #1f1108 !important;
-    color: #f97316 !important;
+    background: var(--accent-bg) !important;
+    color: var(--accent) !important;
     cursor: pointer;
 }
 .dash-dropdown-option[aria-selected="true"],
 .dash-dropdown-option[data-selected] {
     background: #2a1508 !important;
-    color: #f97316 !important;
+    color: var(--accent) !important;
 }
 
 /* ── Text inputs ───────────────────────────────────────────── */
 input[type="text"] {
-    background: #0d0f14 !important;
-    color: #f0f1f5 !important;
-    border-color: #252836 !important;
+    background: var(--bg-page) !important;
+    color: var(--text) !important;
+    border-color: var(--border) !important;
 }
 input[type="text"]:focus {
     outline: none;
-    border-color: #f97316 !important;
-    box-shadow: 0 0 0 2px rgba(249,115,22,.2) !important;
+    border-color: var(--accent) !important;
+    box-shadow: 0 0 0 2px var(--accent-glow) !important;
 }
 
 /* ── Dash Tabs ─────────────────────────────────────────────── */
 .dash-tabs-container {
-    background: #0d0f14 !important;
+    background: var(--bg-page) !important;
 }
 
 /* ── Upload zone ───────────────────────────────────────────── */
 .dash-upload {
-    background: #0d0f14 !important;
+    background: var(--bg-page) !important;
 }
 
 /* ── Scrollbar ─────────────────────────────────────────────── */
 ::-webkit-scrollbar { width: 6px; height: 6px; }
-::-webkit-scrollbar-track { background: #0d0f14; }
-::-webkit-scrollbar-thumb { background: #252836; border-radius: 3px; }
-::-webkit-scrollbar-thumb:hover { background: #f97316; }
+::-webkit-scrollbar-track { background: var(--bg-page); }
+::-webkit-scrollbar-thumb { background: var(--border); border-radius: 3px; }
+::-webkit-scrollbar-thumb:hover { background: var(--accent); }
+
+/* ── Buttons ───────────────────────────────────────────────── */
+button.btn {
+    font-size:     13px;
+    padding:       8px 20px;
+    border-radius: 6px;
+    font-weight:   700;
+    font-family:   inherit;
+    cursor:        pointer;
+    white-space:   nowrap;
+    border:        1px solid var(--accent);
+    background:    var(--accent-bg);
+    color:         var(--accent);
+    transition:    background 0.15s, color 0.15s;
+}
+button.btn:hover:not(:disabled) {
+    background: var(--accent);
+    color:      var(--bg-page);
+}
+button.btn:disabled {
+    border-color: var(--border-faint);
+    background:   var(--bg-subtle);
+    color:        var(--text-muted);
+    cursor:       not-allowed;
+}
+
+button.btn-danger {
+    font-size:     13px;
+    padding:       8px 20px;
+    border-radius: 6px;
+    font-weight:   700;
+    font-family:   inherit;
+    cursor:        pointer;
+    white-space:   nowrap;
+    border:        1px solid var(--err-strong);
+    background:    var(--err-bg-alt);
+    color:         var(--err-text);
+    transition:    background 0.15s, color 0.15s;
+}
+button.btn-danger:hover {
+    background: var(--err-strong);
+    color:      var(--bg-page);
+}
+
+button.btn-success {
+    font-size:     13px;
+    padding:       8px 20px;
+    border-radius: 6px;
+    font-weight:   700;
+    font-family:   inherit;
+    cursor:        pointer;
+    white-space:   nowrap;
+    border:        1px solid var(--ok-alt);
+    background:    var(--ok-alt-bg);
+    color:         var(--ok-alt);
+    transition:    background 0.15s, color 0.15s;
+}
+button.btn-success:hover {
+    background: var(--ok-alt);
+    color:      var(--bg-page);
+}

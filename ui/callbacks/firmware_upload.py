@@ -63,7 +63,7 @@ def _openblt_device(interface, channel):
 
 def _single_bar(label, pct, sub):
     """Render one labeled progress bar row."""
-    color = "#2980b9"
+    color = "var(--accent)"
     return html.Div(
         style={"marginBottom": "10px"},
         children=[
@@ -75,12 +75,12 @@ def _single_bar(label, pct, sub):
                     "marginBottom": "5px",
                 },
                 children=[
-                    html.Span(label, style={"fontSize": "12px", "fontWeight": "700", "color": "#333"}),
+                    html.Span(label, style={"fontSize": "12px", "fontWeight": "700", "color": "var(--text)"}),
                     html.Span(f"{pct:.0f} %", style={"fontSize": "13px", "fontWeight": "700", "color": color}),
                 ],
             ),
             html.Div(
-                style={"background": "#dde3ea", "borderRadius": "5px", "height": "10px", "overflow": "hidden"},
+                style={"background": "var(--border)", "borderRadius": "5px", "height": "10px", "overflow": "hidden"},
                 children=[
                     html.Div(style={
                         "background": color,
@@ -91,7 +91,7 @@ def _single_bar(label, pct, sub):
                     })
                 ],
             ),
-            html.Div(sub, style={"fontSize": "11px", "color": "#888", "marginTop": "3px"}),
+            html.Div(sub, style={"fontSize": "11px", "color": "var(--text-muted)", "marginTop": "3px"}),
         ],
     )
 
@@ -130,8 +130,8 @@ def _progress_bar_ui():
 
     return html.Div(
         style={
-            "background": "#f7f9fc",
-            "border": "1px solid #dfe3ea",
+            "background": "var(--bg-card)",
+            "border": "1px solid var(--border)",
             "borderRadius": "8px",
             "padding": "12px 14px",
             "marginTop": "10px",
@@ -139,7 +139,7 @@ def _progress_bar_ui():
         children=[
             html.Div(
                 status_label,
-                style={"fontSize": "11px", "fontWeight": "700", "color": "#888",
+                style={"fontSize": "11px", "fontWeight": "700", "color": "var(--text-muted)",
                        "textTransform": "uppercase", "letterSpacing": "0.06em", "marginBottom": "10px"},
             ),
             _single_bar("Flash löschen", erase_pct, erase_sub),
@@ -155,7 +155,7 @@ def _run_flash(tmp_path, filename, device_name, device_channel, baudrate, transm
     except (OSError, ImportError) as exc:
         return html.Span(
             f"Fehler: libopenblt.dll nicht gefunden – bitte in den openblt-Ordner kopieren. ({exc})",
-            style={"color": "#c0392b"},
+            style={"color": "var(--err-strong)"},
         )
 
     openblt.firmware_init(openblt.BLT_FIRMWARE_PARSER_SRECORD)
@@ -163,14 +163,14 @@ def _run_flash(tmp_path, filename, device_name, device_channel, baudrate, transm
         if openblt.firmware_load_from_file(tmp_path, 0) != openblt.BLT_RESULT_OK:
             return html.Span(
                 "Fehler: Firmware-Datei konnte nicht geladen werden (kein gültiges S-Record?).",
-                style={"color": "#c0392b"},
+                style={"color": "var(--err-strong)"},
             )
 
         seg_count = openblt.firmware_get_segment_count()
         if seg_count == 0:
             return html.Span(
                 "Fehler: Keine Firmware-Segmente in der Datei gefunden.",
-                style={"color": "#c0392b"},
+                style={"color": "var(--err-strong)"},
             )
 
         # Pre-load all segment data into Python lists before starting the session.
@@ -196,7 +196,7 @@ def _run_flash(tmp_path, filename, device_name, device_channel, baudrate, transm
                     f"RV=0x{rv:08X} {'✓' if rv_ok else '✗ (ungültig!)'}",
                     style={
                         "fontFamily": "monospace", "fontSize": "11px",
-                        "color": "#27ae60" if (sp_ok and rv_ok) else "#c0392b",
+                        "color": "var(--ok-alt)" if (sp_ok and rv_ok) else "var(--err-strong)",
                     },
                 )
             ]
@@ -205,13 +205,13 @@ def _run_flash(tmp_path, filename, device_name, device_channel, baudrate, transm
                     html.Span(
                         "Fehler: Vektortabelle der Firmware ist ungültig — "
                         "der Bootloader würde die Applikation nicht starten.",
-                        style={"color": "#c0392b", "fontWeight": "600"},
+                        style={"color": "var(--err-strong)", "fontWeight": "600"},
                     ),
                     *vec_lines,
                     html.Div(
                         "Mögliche Ursache: Firmware nicht für die korrekte Startadresse "
                         f"(0x{first_addr:08X}) kompiliert. Flash wird nicht durchgeführt.",
-                        style={"fontSize": "11px", "color": "#888", "marginTop": "4px"},
+                        style={"fontSize": "11px", "color": "var(--text-muted)", "marginTop": "4px"},
                     ),
                 ])
 
@@ -249,7 +249,7 @@ def _run_flash(tmp_path, filename, device_name, device_channel, baudrate, transm
                     f"Fehler: Bootloader nach {_CONNECT_TIMEOUT} s nicht erreichbar. "
                     "Bitte Gerät innerhalb des Zeitfensters in den Bootloader-Modus versetzen "
                     "(Reset / Power-Cycle).",
-                    style={"color": "#c0392b"},
+                    style={"color": "var(--err-strong)"},
                 )
 
             try:
@@ -270,7 +270,7 @@ def _run_flash(tmp_path, filename, device_name, device_channel, baudrate, transm
                         if openblt.session_clear_memory(addr, chunk) != openblt.BLT_RESULT_OK:
                             return html.Span(
                                 f"Fehler: Flash-Löschung fehlgeschlagen (Adresse 0x{addr:08X}).",
-                                style={"color": "#c0392b"},
+                                style={"color": "var(--err-strong)"},
                             )
                         addr       += chunk
                         remaining  -= chunk
@@ -291,7 +291,7 @@ def _run_flash(tmp_path, filename, device_name, device_channel, baudrate, transm
                         ) != openblt.BLT_RESULT_OK:
                             return html.Span(
                                 f"Fehler: Schreiben fehlgeschlagen (Adresse 0x{addr:08X}).",
-                                style={"color": "#c0392b"},
+                                style={"color": "var(--err-strong)"},
                             )
                         addr       += chunk
                         offset     += chunk
@@ -303,7 +303,7 @@ def _run_flash(tmp_path, filename, device_name, device_channel, baudrate, transm
                 seg_lines = [
                     html.Div(
                         f"  Segment {j + 1}: 0x{a0:08X} – 0x{a1:08X}  ({ln} Bytes)",
-                        style={"fontFamily": "monospace", "fontSize": "11px", "color": "#555"},
+                        style={"fontFamily": "monospace", "fontSize": "11px", "color": "var(--text-muted)"},
                     )
                     for j, (a0, a1, ln) in enumerate(segment_info)
                 ]
@@ -311,14 +311,14 @@ def _run_flash(tmp_path, filename, device_name, device_channel, baudrate, transm
                     html.Span(
                         f"Firmware erfolgreich übertragen!  "
                         f"Datei: {filename} · {seg_count} Segment(e) · {total_bytes} Bytes",
-                        style={"color": "#27ae60", "fontWeight": "600"},
+                        style={"color": "var(--ok-alt)", "fontWeight": "600"},
                     ),
                     html.Div(seg_lines, style={"marginTop": "4px"}),
                     *vec_lines,
                     html.Div(
                         "Das Gerät wird via PROGRAM_RESET automatisch neu gestartet. "
                         "Falls die Applikation nicht läuft: Gerät manuell neu starten (Power-Cycle).",
-                        style={"fontSize": "11px", "color": "#888", "marginTop": "4px"},
+                        style={"fontSize": "11px", "color": "var(--text-muted)", "marginTop": "4px"},
                     ),
                 ])
 
@@ -346,7 +346,7 @@ def _flash_thread(tmp_path, filename, can_manager, cfg, latest, lock,
             cfg.bitrate, transmit_id, receive_id,
         )
     except Exception as exc:
-        result = html.Span(f"Unerwarteter Fehler: {exc}", style={"color": "#c0392b"})
+        result = html.Span(f"Unerwarteter Fehler: {exc}", style={"color": "var(--err-strong)"})
     finally:
         # Give the target time to store the checksum, reset, and start the app.
         time.sleep(3.0)
@@ -379,25 +379,25 @@ def register_firmware_upload_callback(app, can_manager, latest, lock):
         if contents is None:
             return html.Span(
                 "Bitte zuerst eine Firmware-Datei auswählen.",
-                style={"color": "#e67e22"},
+                style={"color": "var(--accent)"},
             ), True, None, None
 
         if _flash_state["running"]:
             return html.Span(
                 "Flash-Vorgang läuft bereits – bitte warten.",
-                style={"color": "#e67e22"},
+                style={"color": "var(--accent)"},
             ), True, None, None
 
         try:
             transmit_id = _parse_can_id(rx_id_str)  # host transmits to bootloader RX ID
             receive_id  = _parse_can_id(tx_id_str)  # host receives from bootloader TX ID
         except (ValueError, TypeError):
-            return html.Span("Fehler: Ungültige CAN-ID eingegeben.", style={"color": "#c0392b"}), True, None, None
+            return html.Span("Fehler: Ungültige CAN-ID eingegeben.", style={"color": "var(--err-strong)"}), True, None, None
 
         if not can_manager.is_running:
             return html.Span(
                 "Fehler: CAN-Bus nicht verbunden. Bitte zuerst im Konfigurationsfeld verbinden.",
-                style={"color": "#c0392b"},
+                style={"color": "var(--err-strong)"},
             ), True, None, None
 
         cfg = can_manager.config
@@ -407,21 +407,21 @@ def register_firmware_upload_callback(app, can_manager, latest, lock):
             return html.Span(
                 f"Fehler: Interface '{cfg.interface}' wird von OpenBLT nicht unterstützt "
                 f"(unterstützt: {', '.join(_INTERFACE_MAP.keys())}).",
-                style={"color": "#c0392b"},
+                style={"color": "var(--err-strong)"},
             ), True, None, None
 
         try:
             _, b64 = contents.split(",", 1)
             file_bytes = base64.b64decode(b64)
         except Exception as exc:
-            return html.Span(f"Fehler beim Lesen der Datei: {exc}", style={"color": "#c0392b"}), True, None, None
+            return html.Span(f"Fehler beim Lesen der Datei: {exc}", style={"color": "var(--err-strong)"}), True, None, None
 
         try:
             with tempfile.NamedTemporaryFile(suffix=".srec", delete=False) as f:
                 tmp_path = f.name
                 f.write(file_bytes)
         except Exception as exc:
-            return html.Span(f"Fehler beim Speichern der Datei: {exc}", style={"color": "#c0392b"}), True, None, None
+            return html.Span(f"Fehler beim Speichern der Datei: {exc}", style={"color": "var(--err-strong)"}), True, None, None
 
         # All checks passed – initialise state and hand off to background thread
         _set_state(

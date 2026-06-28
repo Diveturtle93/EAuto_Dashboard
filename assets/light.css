@@ -1,0 +1,137 @@
+/* ── Dash 4.x Design Tokens – Light/Maraneo theme ────────────
+   Aktiviert wenn <html class="theme-light"> gesetzt ist.
+   Überschreibt alle Variablen aus dark.css (höhere Spezifität).
+   ──────────────────────────────────────────────────────────── */
+html.theme-light {
+    /* Dash component tokens */
+    --Dash-Fill-Inverse-Strong:    #F0F4F8;   /* dropdown / popup background  */
+    --Dash-Stroke-Strong:          #C5D0DF;   /* borders                       */
+    --Dash-Text-Strong:            #1A3A7A;   /* primary text                  */
+    --Dash-Text-Weak:              #2D5491;   /* secondary text                */
+    --Dash-Fill-Interactive-Strong:#00B4D8;   /* accent / focus cyan           */
+    --Dash-Fill-Interactive-Weak:  #E0F7FC;   /* subtle cyan hover bg          */
+    --Dash-Text-Disabled:          #9AAABB;   /* placeholder / disabled text   */
+    --Dash-Fill-Disabled:          #DDE4EE;   /* dividers / disabled bg        */
+    --Dash-Shading-Strong:         rgba(26,43,74,.30);
+    --Dash-Shading-Weak:           rgba(26,43,74,.10);
+
+    /* ── App-specific tokens – change these to switch color scheme ── */
+
+    /* Backgrounds */
+    --bg-page:         #FFFFFF;   /* page / input background */
+    --bg-card:         #F0F4F8;   /* card / panel background */
+    --bg-raised:       #E8EEF5;   /* slightly elevated surface (info boxes) */
+    --bg-subtle:       #DDE4EE;   /* disabled / muted background */
+
+    /* Borders */
+    --border:          #C5D0DF;   /* standard border */
+    --border-faint:    #D0DAE8;   /* upload zone, very subtle */
+    --border-inactive: #B8C5D5;   /* inactive / disabled button border */
+    --border-info:     #BAD0E5;   /* info box border */
+
+    /* Text – Dunkelblau/Navy */
+    --text:            #1A3A7A;   /* primary text */
+    --text-secondary:  #2D5491;   /* secondary / labels */
+    --text-muted:      #5A7BAA;   /* muted / hints / disabled */
+    --text-soft:       #1F4080;   /* slightly muted primary */
+    --text-inactive:   #8AAACE;   /* clearly inactive */
+
+    /* Akzent – Cyan/Türkis */
+    --accent:          #00B4D8;
+    --accent-bg:       #E0F7FC;   /* accent hover / active background */
+    --accent-bg-deep:  #B2EBF5;   /* deep accent background */
+    --accent-glow:     rgba(0,180,216,.20);
+
+    /* Warning – Amber */
+    --warn:            #D97706;   /* warning amber */
+    --warn-bg:         #FFF8E0;   /* warning amber background */
+    --warn-border:     #B45309;   /* warning amber border */
+
+    /* Success – Green */
+    --ok:              #16A34A;   /* success green (battery test) */
+    --ok-bg:           #DCFCE7;   /* success green background */
+    --ok-alt:          #15803D;   /* alt success green (kurzschlusstest) */
+    --ok-alt-bg:       #D5F0E0;   /* alt success green background */
+
+    /* Error – Red */
+    --err:             #DC2626;   /* error red */
+    --err-text:        #B91C1C;   /* lighter error text */
+    --err-strong:      #991B1B;   /* darker error red */
+    --err-bg:          #FEE2E2;   /* error red background */
+    --err-bg-alt:      #FECACA;   /* darker error background */
+
+    /* Info – Blue */
+    --info:            #1565C0;   /* info blue */
+    --info-border:     #1976D2;   /* info blue border */
+    --info-bg:         #E3F2FD;   /* info blue background */
+    --info-bg-deep:    #BBDEFB;   /* deeper info blue background */
+
+    /* Shadows */
+    --shadow-card:     rgba(26,43,74,.12);
+}
+
+/* ── Body ──────────────────────────────────────────────────── */
+html.theme-light body {
+    background: var(--bg-page) !important;
+    color: var(--text);
+}
+
+/* ── Dropdown button – leicht heller als Popup für Tiefenwirkung ── */
+html.theme-light .dash-dropdown {
+    background: var(--bg-page) !important;
+}
+html.theme-light .dash-dropdown:hover {
+    border-color: var(--accent) !important;
+}
+
+/* ── Dropdown option hover / selected states ──────────────── */
+html.theme-light .dash-dropdown-option:hover,
+html.theme-light .dash-dropdown-option[data-highlighted] {
+    background: var(--accent-bg) !important;
+    color: var(--accent) !important;
+    cursor: pointer;
+}
+html.theme-light .dash-dropdown-option[aria-selected="true"],
+html.theme-light .dash-dropdown-option[data-selected] {
+    background: #B2EBF5 !important;
+    color: #006B8A !important;
+}
+
+/* ── Text inputs ───────────────────────────────────────────── */
+html.theme-light input[type="text"] {
+    background: var(--bg-page) !important;
+    color: var(--text) !important;
+    border-color: var(--border) !important;
+}
+html.theme-light input[type="text"]:focus {
+    outline: none;
+    border-color: var(--accent) !important;
+    box-shadow: 0 0 0 2px var(--accent-glow) !important;
+}
+
+/* ── Dash Tabs ─────────────────────────────────────────────── */
+html.theme-light .dash-tabs-container {
+    background: var(--bg-page) !important;
+}
+
+/* ── Upload zone ───────────────────────────────────────────── */
+html.theme-light .dash-upload {
+    background: var(--bg-page) !important;
+}
+
+/* ── Scrollbar ─────────────────────────────────────────────── */
+html.theme-light ::-webkit-scrollbar { width: 6px; height: 6px; }
+html.theme-light ::-webkit-scrollbar-track { background: var(--bg-page); }
+html.theme-light ::-webkit-scrollbar-thumb { background: var(--border); border-radius: 3px; }
+html.theme-light ::-webkit-scrollbar-thumb:hover { background: var(--accent); }
+
+/* ── Buttons (überschreiben dark.css-Variablen via html.theme-light) ─── */
+html.theme-light button.btn-success {
+    border-color: var(--ok-alt);
+    background:   var(--ok-alt-bg);
+    color:        var(--ok-alt);
+}
+html.theme-light button.btn-success:hover {
+    background: var(--ok-alt);
+    color:      var(--bg-page);
+}

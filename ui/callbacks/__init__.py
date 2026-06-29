@@ -1,4 +1,5 @@
 from .can_config import register_can_config_callback, register_can_banner_callback
+from .cell_data import register_cell_data_callbacks
 from .ecu_preset import register_ecu_preset_callback
 from .export_csv import register_export_csv_callback
 from .firmware_upload import register_firmware_upload_callback
@@ -9,6 +10,7 @@ from .theme import register_theme_callback
 __all__ = [
     "register_can_banner_callback",
     "register_can_config_callback",
+    "register_cell_data_callbacks",
     "register_ecu_preset_callback",
     "register_export_csv_callback",
     "register_firmware_upload_callback",

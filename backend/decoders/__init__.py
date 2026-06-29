@@ -12,6 +12,12 @@ DECODERS = {}
 #   MULTI_DECODERS[0x538] = decode_0x538
 MULTI_DECODERS = {}
 
+from .cell_voltages    import build_voltage_decoders
+from .cell_temperatures import build_temp_decoders
+
+MULTI_DECODERS.update(build_voltage_decoders())   # 0x680–0x69D
+MULTI_DECODERS.update(build_temp_decoders())       # 0x780–0x7A7
+
 
 def decode_can_message(can_id, data):
     """Return (status, state, status_key, state_key) or None if ID unknown."""

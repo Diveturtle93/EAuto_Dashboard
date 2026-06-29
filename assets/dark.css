@@ -17,6 +17,10 @@
 
     /* ── App-specific tokens – change these to switch color scheme ── */
 
+    /* Plotly chart axes (background is transparent, card bg shows through) */
+    --chart-text: #9099a8;   /* axis labels / font */
+    --chart-grid: #252836;   /* grid lines / zero lines */
+
     /* Backgrounds */
     --bg-page:         #0d0f14;   /* page / input background */
     --bg-card:         #161922;   /* card / panel background */

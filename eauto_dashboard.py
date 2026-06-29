@@ -28,12 +28,14 @@ from ui.callbacks import (
     register_reset_callback,
     register_can_banner_callback,
     register_can_config_callback,
+    register_cell_data_callbacks,
     register_ecu_preset_callback,
     register_export_csv_callback,
     register_firmware_upload_callback,
     register_theme_callback,
 )
 from ui.bootloader import build_firmware_upload_card
+from ui.cell_data_tab import build_cell_data_tab
 from ui.header import build_can_config_fields, build_theme_button
 from ui.dashboard_tab import build_time_window_controls
 
@@ -126,6 +128,13 @@ app.layout = html.Div(
                     ],
                 ),
                 dcc.Tab(
+                    label="Zellen",
+                    value="tab_zellen",
+                    style=_TAB_STYLE,
+                    selected_style=_TAB_SELECTED,
+                    children=[build_cell_data_tab()],
+                ),
+                dcc.Tab(
                     label="Bootloader",
                     value="tab_bootloader",
                     style=_TAB_STYLE,
@@ -143,8 +152,9 @@ app.layout = html.Div(
         dcc.Store(id="snap", storage_type="memory"),
         dcc.Store(id="theme-store", data="dark", storage_type="local"),
         dcc.Download(id="dl"),
-        html.Div(id="reset_dummy", style={"display": "none"}),
-        html.Div(id="theme-dummy", style={"display": "none"}),
+        html.Div(id="reset_dummy",       style={"display": "none"}),
+        html.Div(id="theme-dummy",       style={"display": "none"}),
+        html.Div(id="chart-theme-dummy", style={"display": "none"}),
     ],
 )
 # ═══════════════════════════════════════════════════════════════════════════════
@@ -156,6 +166,7 @@ register_snapshot_callback(app, lock, latest)
 register_reset_callback(app, lock, latest)
 register_can_banner_callback(app)
 register_can_config_callback(app, can_manager, latest, lock)
+register_cell_data_callbacks(app)
 register_ecu_preset_callback(app)
 register_export_csv_callback(app)
 register_firmware_upload_callback(app, can_manager, latest, lock)

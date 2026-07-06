@@ -49,11 +49,11 @@ def decode_0x237(data: bytes) -> dict:
     """Decode CAN 0x237: BMS GPIO output states.
 
     Byte 0: systemoutput, Byte 1: highcurrent_out, Byte 2: ledoutput,
-    Byte 3: komfortoutput, Byte 5: rolling counter.
+    Byte 3: komfortoutput, Byte 4: rolling counter.
 
     Returns dict {key: 0|1} (plus "gpio_counter") or None if data is too short.
     """
-    if len(data) < 6:
+    if len(data) < 5:
         return None
 
     out = {}

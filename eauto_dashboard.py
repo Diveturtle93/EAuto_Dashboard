@@ -29,12 +29,14 @@ from ui.callbacks import (
     register_can_banner_callback,
     register_can_config_callback,
     register_cell_data_callbacks,
+    register_bms_outputs_callback,
     register_ecu_preset_callback,
     register_export_csv_callback,
     register_firmware_upload_callback,
     register_theme_callback,
 )
 from ui.bootloader import build_firmware_upload_card
+from ui.cards import build_bms_outputs_card
 from ui.cell_data_tab import build_cell_data_tab
 from ui.header import build_can_config_fields, build_theme_button
 from ui.dashboard_tab import build_time_window_controls
@@ -123,6 +125,7 @@ app.layout = html.Div(
                     children=[
                         html.Div(style={"paddingTop": "14px"}, children=[
                             build_time_window_controls(),
+                            build_bms_outputs_card(),
                             # Eigene Anzeigen hier einfügen
                         ]),
                     ],
@@ -167,6 +170,7 @@ register_reset_callback(app, lock, latest)
 register_can_banner_callback(app)
 register_can_config_callback(app, can_manager, latest, lock)
 register_cell_data_callbacks(app)
+register_bms_outputs_callback(app)
 register_ecu_preset_callback(app)
 register_export_csv_callback(app)
 register_firmware_upload_callback(app, can_manager, latest, lock)

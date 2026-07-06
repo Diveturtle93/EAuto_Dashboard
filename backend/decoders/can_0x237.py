@@ -61,6 +61,6 @@ def decode_0x237(data: bytes) -> dict:
     out.update(_unpack(data[1], _HIGHCURRENT_BITS))
     out.update(_unpack(data[2], _LED_BITS))
     out.update(_unpack(data[3], _KOMFORT_BITS))
-    out["gpio_counter"] = data[5]
+    out["gpio_counter"] = data[4]
 
     return out

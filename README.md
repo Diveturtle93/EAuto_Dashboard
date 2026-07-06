@@ -55,17 +55,24 @@ eauto_dashboard.py          # Hauptprogramm und Dashboard-Layout
 │   └── lib.py              # ctypes-Bindings für libopenblt.dll
 └── ui/
     ├── __init__.py
-    ├── banners.py           # CAN-Lost-Banner Formatierung
-    ├── controls.py          # CAN-Konfigurationsfelder, Zeitfenster, Firmware-Upload-Karte
+    ├── header.py            # Titelleiste: Theme-Button, CAN-Konfigurationsfelder, CAN-Status-Pille
+    ├── dashboard_tab.py     # "Dashboard"-Tab: Zeitfenster-Auswahl, Export/Reset
+    ├── cell_data_tab.py     # "Zellen"-Tab: baut die Karten aus ui/cards/ zusammen
+    ├── bootloader.py        # "Bootloader"-Tab: Firmware-Upload-Karte mit ECU-Presets
+    ├── cards/
+    │   ├── __init__.py
+    │   ├── cell_voltage_card.py      # Balkendiagramm Zellspannungen
+    │   └── cell_temperature_card.py  # Balkendiagramm Zelltemperaturen
     └── callbacks/
         ├── __init__.py
-        ├── can_banner.py    # CAN-Verbindungsstatus Banner
-        ├── can_config.py    # CAN-Adapter verbinden/trennen
+        ├── can_config.py    # CAN-Adapter verbinden/trennen + Status-Banner
+        ├── cell_data.py     # Zellspannungs-/Zelltemperatur-Charts aktualisieren
         ├── ecu_preset.py    # ECU-Preset Dropdown → CAN-ID-Felder befüllen
         ├── export_csv.py    # CSV-Export Callback
         ├── firmware_upload.py  # Firmware-Upload via OpenBLT
         ├── reset.py         # Datenspeicher zurücksetzen
-        └── snapshot.py      # Tick → aktuellen Snapshot in dcc.Store schreiben
+        ├── snapshot.py      # Tick → aktuellen Snapshot in dcc.Store schreiben
+        └── theme.py         # Hell/Dunkel-Theme umschalten
 ```
 
 ## Architektur
@@ -77,8 +84,8 @@ eauto_dashboard.py          # Hauptprogramm und Dashboard-Layout
 
 ### Frontend
 
-- **`ui/controls.py`**: Wiederverwendbare UI-Komponenten (CAN-Konfigurationsfelder, Zeitfenster-Steuerung, Firmware-Upload-Karte mit ECU-Presets)
-- **`ui/banners.py`**: Banner-Formatierung für CAN-Verbindungsverlust
+- **`ui/header.py`**, **`ui/dashboard_tab.py`**, **`ui/bootloader.py`**: Layout-Bausteine der jeweiligen Tabs/Titelleiste (inkl. CAN-Status-Pille in `header.py`)
+- **`ui/cards/`**: Reine Render-Funktionen für die Zellspannungs-/Zelltemperatur-Karten (Daten rein, `html.Div` raus) — werden sowohl beim Tab-Aufbau als auch von `ui/callbacks/cell_data.py` referenziert
 - **`ui/callbacks/`**: Alle Dash-Callbacks für Benutzerinteraktionen und Datenaktualisierungen
 
 ### Datenfluss

@@ -1,3 +1,8 @@
+# Layout-Bausteine für die Titelleiste des Dashboards: Theme-Umschalter,
+# CAN-Adapter-Konfigurationsfelder (Interface/Kanal/Bitrate + Verbinden-Button)
+# sowie die CAN-Status-Pille. Die zugehörige Logik liegt in
+# ui/callbacks/theme.py bzw. ui/callbacks/can_config.py.
+
 from dash import dcc, html
 
 _INPUT = {
@@ -72,4 +77,54 @@ def build_can_config_fields(default_interface="pcan", default_channel="PCAN_USBB
             html.Div(id="can_connect_status", style={"fontSize": "12px", "color": "var(--text-secondary)"}),
             dcc.Store(id="can_connected", data=False),
         ],
+    )
+
+
+def format_can_status(snap, is_connected):
+    """Returns the CAN status pill for the header (4 states: grey/yellow/green/red).
+
+    snap erwartet ein Dict mit "L" (latest-Snapshot) und "now" (aktueller
+    Zeitstempel); is_connected gibt an, ob der CanManager aktuell einen
+    laufenden Empfangs-Thread besitzt.
+    """
+    if not is_connected:
+        # Grau: kein CAN-Adapter konfiguriert/verbunden
+        return _pill("Kein Adapter", "var(--bg-subtle)", "var(--text-inactive)", "var(--text-muted)")
+
+    L = snap.get("L", {}) if snap else {}
+    if not L.get("can_adapter_connected", False):
+        # Gelb: Adapter wurde nach Verbindungsaufbau getrennt (Reconnect läuft)
+        return _pill("Adapter getrennt", "var(--warn-bg)", "var(--warn)", "var(--warn)")
+
+    last_rx = L.get("last_rx_ms", 0)
+    if last_rx == 0:
+        # Grün: verbunden, aber noch keine Nachricht empfangen
+        return _pill("CAN OK", "var(--ok-alt-bg)", "var(--ok-alt)", "var(--ok-alt)")
+
+    pkt_age = snap["now"] - last_rx / 1000.0
+    if pkt_age < 3.0:
+        # Grün: zuletzt empfangener Frame ist noch frisch
+        return _pill("CAN OK", "var(--ok-alt-bg)", "var(--ok-alt)", "var(--ok-alt)")
+
+    # Rot: seit > 3 s keine CAN-Nachricht mehr empfangen
+    return _pill(f"CAN Fehler ({pkt_age:.0f} s)", "var(--err-bg)", "var(--err-strong)", "var(--err-text)")
+
+
+def _pill(text, bg, dot, text_color):
+    """Baut die kleine, farbige Status-Pille (Punkt + Text)."""
+    return html.Div(
+        children=[
+            html.Span(style={
+                "display": "inline-block", "width": "8px", "height": "8px",
+                "borderRadius": "50%", "background": dot,
+                "marginRight": "6px", "flexShrink": "0",
+            }),
+            html.Span(text, style={"fontSize": "12px", "fontWeight": "600", "color": text_color}),
+        ],
+        style={
+            "display": "inline-flex", "alignItems": "center",
+            "padding": "5px 12px", "borderRadius": "20px",
+            "background": bg, "border": f"1px solid {dot}",
+            "whiteSpace": "nowrap",
+        },
     )

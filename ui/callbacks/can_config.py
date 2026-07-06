@@ -3,7 +3,7 @@ from dash import Input, Output, State
 from dash.exceptions import PreventUpdate
 
 from backend.can_bus import CanConfig
-from ui.banners import format_can_status
+from ui.header import format_can_status
 
 _FIELDS_VISIBLE = {"display": "flex", "alignItems": "center", "gap": "8px", "flexWrap": "wrap"}
 _FIELDS_HIDDEN  = {"display": "none"}

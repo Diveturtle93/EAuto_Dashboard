@@ -14,9 +14,11 @@ MULTI_DECODERS = {}
 
 from .cell_voltages    import build_voltage_decoders
 from .cell_temperatures import build_temp_decoders
+from .can_0x237        import decode_0x237
 
 MULTI_DECODERS.update(build_voltage_decoders())   # 0x680–0x69D
 MULTI_DECODERS.update(build_temp_decoders())       # 0x780–0x7A7
+MULTI_DECODERS[0x237] = decode_0x237               # BMS GPIO states
 
 
 def decode_can_message(can_id, data):

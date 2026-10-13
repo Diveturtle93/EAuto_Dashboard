@@ -1,458 +1,526 @@
+#-----------------------------------------------------------------------
+# Titel		:	firmware_upload.py
+#-----------------------------------------------------------------------
+# Sprache	:	Python
+# Datum		:	17.06.2026
+# Version	:	1.0
+# Autor		:	Diveturtle93
+# Projekt	:	EAuto_Dashboard
+# Quelle	:
+#-----------------------------------------------------------------------
+
+# Einfuegen der standard Module
+#-----------------------------------------------------------------------
 import base64
 import os
 import re
 import tempfile
 import threading
 import time
+#-----------------------------------------------------------------------
 
+# Einfuegen der externen Module
+#-----------------------------------------------------------------------
 from dash import Input, Output, State, html
 from dash.exceptions import PreventUpdate
+#-----------------------------------------------------------------------
 
-# Maps python-can interface names to OpenBLT device names (Windows)
-_INTERFACE_MAP = {
-    "pcan":   "peak_pcanusb",
-    "kvaser": "kvaser_canlib",
-    "vector": "vector_xldriver",
-    "ixxat":  "ixxat_vcidriver",
-    "slcan":  "lawicel_canusb",
+# Einfuegen der eigenen Module
+#-----------------------------------------------------------------------
+
+#-----------------------------------------------------------------------
+
+# Definiere Debug-Symbole
+#-----------------------------------------------------------------------
+DEBUG_FIRMWARE_UPLOAD							= False
+#-----------------------------------------------------------------------
+
+# Version definieren
+#-----------------------------------------------------------------------
+FIRMWARE_UPLOAD_MAJOR							= 1
+FIRMWARE_UPLOAD_MINOR							= 0
+FIRMWARE_UPLOAD_PATCH							= 0
+FIRMWARE_UPLOAD_DEV								= 0
+#-----------------------------------------------------------------------
+
+# Konstanten definieren
+#-----------------------------------------------------------------------
+# Zuordnung python-can Interface -> OpenBLT Geraetename (Windows)
+_INTERFACE_MAP									= {
+	"pcan": "peak_pcanusb",
+	"kvaser": "kvaser_canlib",
+	"vector": "vector_xldriver",
+	"ixxat": "ixxat_vcidriver",
+	"slcan": "lawicel_canusb",
 }
 
-_CONNECT_TIMEOUT = 30     # seconds to wait for bootloader to become available
-_ERASE_CHUNK     = 32768  # 32 KB per PROGRAM_CLEAR call  – matches BootCommander
-_WRITE_CHUNK     = 256    # 256 B  per BltSessionWriteData – matches BootCommander
+_CONNECT_TIMEOUT								= 30						# Wartezeit auf den Bootloader in s
+_ERASE_CHUNK									= 32768						# 32 KB pro PROGRAM_CLEAR, wie BootCommander
+_WRITE_CHUNK									= 256						# 256 B pro BltSessionWriteData, wie BootCommander
+#-----------------------------------------------------------------------
 
-# Global flash progress state – written by flash thread, read by poll callback
-_flash_state = {
-    "running":      False,
-    "phase":        "idle",   # idle | connecting | erasing | writing | done
-    "erase_done":   0,
-    "erase_total":  1,
-    "write_done":   0,
-    "write_total":  1,
-    "result":       None,     # Dash component shown when phase == "done"
+# Variablen definieren
+#-----------------------------------------------------------------------
+# Globaler Fortschritt des Flash-Vorgangs, geschrieben vom Flash-Thread, gelesen vom Poll-Callback
+_flashState = {
+	"running": False,
+	"phase": "idle",														# idle | connecting | erasing | writing | done
+	"eraseDone": 0,
+	"eraseTotal": 1,
+	"writeDone": 0,
+	"writeTotal": 1,
+	"result": None,															# Dash-Komponente, wird bei phase == "done" angezeigt
 }
+#-----------------------------------------------------------------------
 
+# Felder des Flash-Fortschritts setzen
+#-----------------------------------------------------------------------
+def _setState (**kwargs):
+	_flashState.update(kwargs)
+#-----------------------------------------------------------------------
 
-def _set_state(**kwargs):
-    _flash_state.update(kwargs)
+# Hex- (0x...) oder Dezimal-String in eine CAN-ID wandeln
+#-----------------------------------------------------------------------
+def _parseCanId (value):
+	s = (value or "").strip()
+	if s.lower().startswith("0x"):
+		return int(s, 16)
 
+	return int(s, 0)
+#-----------------------------------------------------------------------
 
-def _parse_can_id(value):
-    """Parse a hex (0x...) or decimal string into an integer CAN ID."""
-    s = (value or "").strip()
-    if s.lower().startswith("0x"):
-        return int(s, 16)
-    return int(s, 0)
+# OpenBLT Geraetename und -kanal zu python-can Interface und Kanal ermitteln
+# Rueckgabe: (deviceName, deviceChannel)
+#-----------------------------------------------------------------------
+def _openbltDevice (interface, channel):
+	deviceName = _INTERFACE_MAP.get(interface.lower(), "")
+	deviceChannel = 0
 
+	# PCAN: Kanalnummer aus "PCAN_USBBUSx" lesen, OpenBLT zaehlt ab 0
+	if interface.lower() == "pcan":
+		m = re.search(r"(\d+)$", channel)
+		if m:
+			deviceChannel = max(0, int(m.group(1)) - 1)
+	# Andere Interfaces: Kanal ist bereits eine Zahl
+	else:
+		try:
+			deviceChannel = int(channel)
+		except (ValueError, TypeError):
+			deviceChannel = 0
 
-def _openblt_device(interface, channel):
-    """Return (device_name, device_channel) for the given python-can interface/channel."""
-    device_name = _INTERFACE_MAP.get(interface.lower(), "")
-    device_channel = 0
-    if interface.lower() == "pcan":
-        m = re.search(r"(\d+)$", channel)
-        if m:
-            device_channel = max(0, int(m.group(1)) - 1)
-    else:
-        try:
-            device_channel = int(channel)
-        except (ValueError, TypeError):
-            device_channel = 0
-    return device_name, device_channel
+	return deviceName, deviceChannel
+#-----------------------------------------------------------------------
 
+# Eine beschriftete Fortschrittsbalken-Zeile aufbauen
+#-----------------------------------------------------------------------
+def _singleBar (label, pct, sub):
+	color = "var(--accent)"
+	return html.Div(
+		style={"marginBottom": "10px"},
+		children=[
+			html.Div(
+				style={
+					"display": "flex",
+					"justifyContent": "space-between",
+					"alignItems": "baseline",
+					"marginBottom": "5px",
+				},
+				children=[
+					html.Span(label, style={"fontSize": "12px", "fontWeight": "700", "color": "var(--text)"}),
+					html.Span(f"{pct:.0f} %", style={"fontSize": "13px", "fontWeight": "700", "color": color}),
+				],
+			),
+			html.Div(
+				style={"background": "var(--border)", "borderRadius": "5px", "height": "10px", "overflow": "hidden"},
+				children=[
+					html.Div(style={
+						"background": color,
+						"width": f"{pct:.1f}%",
+						"height": "100%",
+						"borderRadius": "5px",
+						"transition": "width 0.2s ease",
+					})
+				],
+			),
+			html.Div(sub, style={"fontSize": "11px", "color": "var(--text-muted)", "marginTop": "3px"}),
+		],
+	)
+#-----------------------------------------------------------------------
 
-def _single_bar(label, pct, sub):
-    """Render one labeled progress bar row."""
-    color = "var(--accent)"
-    return html.Div(
-        style={"marginBottom": "10px"},
-        children=[
-            html.Div(
-                style={
-                    "display": "flex",
-                    "justifyContent": "space-between",
-                    "alignItems": "baseline",
-                    "marginBottom": "5px",
-                },
-                children=[
-                    html.Span(label, style={"fontSize": "12px", "fontWeight": "700", "color": "var(--text)"}),
-                    html.Span(f"{pct:.0f} %", style={"fontSize": "13px", "fontWeight": "700", "color": color}),
-                ],
-            ),
-            html.Div(
-                style={"background": "var(--border)", "borderRadius": "5px", "height": "10px", "overflow": "hidden"},
-                children=[
-                    html.Div(style={
-                        "background": color,
-                        "width": f"{pct:.1f}%",
-                        "height": "100%",
-                        "borderRadius": "5px",
-                        "transition": "width 0.2s ease",
-                    })
-                ],
-            ),
-            html.Div(sub, style={"fontSize": "11px", "color": "var(--text-muted)", "marginTop": "3px"}),
-        ],
-    )
+# Fortschrittsanzeige aus dem aktuellen _flashState aufbauen
+#-----------------------------------------------------------------------
+def _progressBarUi ():
+	phase = _flashState["phase"]
+	if phase not in ("connecting", "erasing", "writing"):
+		return html.Div()
 
+	# Werte der beiden Balken je nach Phase
+	if phase == "connecting":
+		erasePct = 0.0
+		eraseSub = "\u2013"
+		writePct = 0.0
+		writeSub = "\u2013"
+	elif phase == "erasing":
+		done = _flashState["eraseDone"]
+		total = max(_flashState["eraseTotal"], 1)
+		erasePct = (done / total) * 100.0
+		eraseSub = f"{done:,} / {total:,} Bytes"
+		writePct = 0.0
+		writeSub = "\u2013"
+	# writing
+	else:
+		erasePct = 100.0
+		eraseSub = f"{_flashState['eraseTotal']:,} Bytes"
+		done = _flashState["writeDone"]
+		total = max(_flashState["writeTotal"], 1)
+		writePct = (done / total) * 100.0
+		writeSub = f"{done:,} / {total:,} Bytes"
 
-def _progress_bar_ui():
-    """Build progress bar component from current _flash_state."""
-    phase = _flash_state["phase"]
-    if phase not in ("connecting", "erasing", "writing"):
-        return html.Div()
+	statusLabel = {
+		"connecting": "Verbinde mit Bootloader \u2026",
+		"erasing": "L\u00f6sche Flash \u2026",
+		"writing": "Schreibe Firmware \u2026",
+	}[phase]
 
-    if phase == "connecting":
-        erase_pct = 0.0
-        erase_sub = "–"
-        write_pct = 0.0
-        write_sub = "–"
-    elif phase == "erasing":
-        done  = _flash_state["erase_done"]
-        total = max(_flash_state["erase_total"], 1)
-        erase_pct = (done / total) * 100.0
-        erase_sub = f"{done:,} / {total:,} Bytes"
-        write_pct = 0.0
-        write_sub = "–"
-    else:  # writing
-        erase_pct = 100.0
-        erase_sub = f"{_flash_state['erase_total']:,} Bytes"
-        done  = _flash_state["write_done"]
-        total = max(_flash_state["write_total"], 1)
-        write_pct = (done / total) * 100.0
-        write_sub = f"{done:,} / {total:,} Bytes"
+	return html.Div(
+		style={
+			"background": "var(--bg-card)",
+			"border": "1px solid var(--border)",
+			"borderRadius": "8px",
+			"padding": "12px 14px",
+			"marginTop": "10px",
+		},
+		children=[
+			html.Div(
+				statusLabel,
+				style={
+					"fontSize": "11px", "fontWeight": "700", "color": "var(--text-muted)",
+					"textTransform": "uppercase", "letterSpacing": "0.06em", "marginBottom": "10px",
+				},
+			),
+			_singleBar("Flash l\u00f6schen", erasePct, eraseSub),
+			_singleBar("Firmware schreiben", writePct, writeSub),
+		],
+	)
+#-----------------------------------------------------------------------
 
-    status_label = {
-        "connecting": "Verbinde mit Bootloader …",
-        "erasing":    "Lösche Flash …",
-        "writing":    "Schreibe Firmware …",
-    }[phase]
+# Firmware-Update ueber OpenBLT ausfuehren und _flashState fortschreiben
+# Rueckgabe: Dash-Komponente mit dem Ergebnis
+#-----------------------------------------------------------------------
+def _runFlash (tmpPath, filename, deviceName, deviceChannel, baudrate, transmitId, receiveId):
+	# Verzoegerter Import, libopenblt.dll wird erst beim Flashen benoetigt
+	try:
+		import openblt
+	except (OSError, ImportError) as exc:
+		return html.Span(
+			f"Fehler: libopenblt.dll nicht gefunden \u2013 bitte in den openblt-Ordner kopieren. ({exc})",
+			style={"color": "var(--err-strong)"},
+		)
 
-    return html.Div(
-        style={
-            "background": "var(--bg-card)",
-            "border": "1px solid var(--border)",
-            "borderRadius": "8px",
-            "padding": "12px 14px",
-            "marginTop": "10px",
-        },
-        children=[
-            html.Div(
-                status_label,
-                style={"fontSize": "11px", "fontWeight": "700", "color": "var(--text-muted)",
-                       "textTransform": "uppercase", "letterSpacing": "0.06em", "marginBottom": "10px"},
-            ),
-            _single_bar("Flash löschen", erase_pct, erase_sub),
-            _single_bar("Firmware schreiben", write_pct, write_sub),
-        ],
-    )
+	openblt.firmware_init(openblt.BLT_FIRMWARE_PARSER_SRECORD)
+	try:
+		if openblt.firmware_load_from_file(tmpPath, 0) != openblt.BLT_RESULT_OK:
+			return html.Span(
+				"Fehler: Firmware-Datei konnte nicht geladen werden (kein g\u00fcltiges S-Record?).",
+				style={"color": "var(--err-strong)"},
+			)
 
+		segCount = openblt.firmware_get_segment_count()
+		if segCount == 0:
+			return html.Span(
+				"Fehler: Keine Firmware-Segmente in der Datei gefunden.",
+				style={"color": "var(--err-strong)"},
+			)
 
-def _run_flash(tmp_path, filename, device_name, device_channel, baudrate, transmit_id, receive_id):
-    """Execute the OpenBLT firmware update sequence. Returns a Dash component. Updates _flash_state for progress."""
-    try:
-        import openblt  # lazy import – libopenblt.dll must be present at flash time
-    except (OSError, ImportError) as exc:
-        return html.Span(
-            f"Fehler: libopenblt.dll nicht gefunden – bitte in den openblt-Ordner kopieren. ({exc})",
-            style={"color": "var(--err-strong)"},
-        )
+		# Alle Segmentdaten vor dem Start der Session in Python-Listen laden
+		segments = []
+		for i in range(segCount):
+			segData, segAddr, segLen = openblt.firmware_get_segment(i)
+			segments.append((list(segData), segAddr, segLen))
 
-    openblt.firmware_init(openblt.BLT_FIRMWARE_PARSER_SRECORD)
-    try:
-        if openblt.firmware_load_from_file(tmp_path, 0) != openblt.BLT_RESULT_OK:
-            return html.Span(
-                "Fehler: Firmware-Datei konnte nicht geladen werden (kein gültiges S-Record?).",
-                style={"color": "var(--err-strong)"},
-            )
+		# Vektortabelle des ersten Segments pruefen (sollte auf APP_START liegen)
+		vecLines = []
+		firstData, firstAddr, firstLen = segments[0]
+		if firstLen >= 8:
+			sp = firstData[0] | (firstData[1] << 8) | (firstData[2] << 16) | (firstData[3] << 24)
+			rv = firstData[4] | (firstData[5] << 8) | (firstData[6] << 16) | (firstData[7] << 24)
+			spOk = 0x20000000 <= sp <= 0x2FFFFFFF
+			rvOk = 0x08000000 <= (rv & ~1) <= 0x0FFFFFFF and bool(rv & 1)
+			spMark = "\u2713" if spOk else "\u2717 (ung\u00fcltig!)"
+			rvMark = "\u2713" if rvOk else "\u2717 (ung\u00fcltig!)"
+			vecLines = [
+				html.Div(
+					f"  Vektortabelle @ 0x{firstAddr:08X}:  "
+					f"SP=0x{sp:08X} {spMark}  "
+					f"RV=0x{rv:08X} {rvMark}",
+					style={
+						"fontFamily": "monospace", "fontSize": "11px",
+						"color": "var(--ok-alt)" if (spOk and rvOk) else "var(--err-strong)",
+					},
+				)
+			]
 
-        seg_count = openblt.firmware_get_segment_count()
-        if seg_count == 0:
-            return html.Span(
-                "Fehler: Keine Firmware-Segmente in der Datei gefunden.",
-                style={"color": "var(--err-strong)"},
-            )
+			# Ungueltige Vektortabelle, nicht flashen
+			if not (spOk and rvOk):
+				return html.Div([
+					html.Span(
+						"Fehler: Vektortabelle der Firmware ist ung\u00fcltig \u2014 "
+						"der Bootloader w\u00fcrde die Applikation nicht starten.",
+						style={"color": "var(--err-strong)", "fontWeight": "600"},
+					),
+					*vecLines,
+					html.Div(
+						"M\u00f6gliche Ursache: Firmware nicht f\u00fcr die korrekte Startadresse "
+						f"(0x{firstAddr:08X}) kompiliert. Flash wird nicht durchgef\u00fchrt.",
+						style={"fontSize": "11px", "color": "var(--text-muted)", "marginTop": "4px"},
+					),
+				])
 
-        # Pre-load all segment data into Python lists before starting the session.
-        segments = []
-        for i in range(seg_count):
-            seg_data, seg_addr, seg_len = openblt.firmware_get_segment(i)
-            segments.append((list(seg_data), seg_addr, seg_len))
+		totalBytes = sum(segLen for _, _, segLen in segments)
 
-        # Validate vector table of the first segment (should be at APP_START)
-        vec_lines = []
-        first_data, first_addr, first_len = segments[0]
-        if first_len >= 8:
-            sp = (first_data[0] | (first_data[1] << 8) |
-                  (first_data[2] << 16) | (first_data[3] << 24))
-            rv = (first_data[4] | (first_data[5] << 8) |
-                  (first_data[6] << 16) | (first_data[7] << 24))
-            sp_ok = 0x20000000 <= sp <= 0x2FFFFFFF
-            rv_ok = 0x08000000 <= (rv & ~1) <= 0x0FFFFFFF and bool(rv & 1)
-            vec_lines = [
-                html.Div(
-                    f"  Vektortabelle @ 0x{first_addr:08X}:  "
-                    f"SP=0x{sp:08X} {'✓' if sp_ok else '✗ (ungültig!)'}  "
-                    f"RV=0x{rv:08X} {'✓' if rv_ok else '✗ (ungültig!)'}",
-                    style={
-                        "fontFamily": "monospace", "fontSize": "11px",
-                        "color": "var(--ok-alt)" if (sp_ok and rv_ok) else "var(--err-strong)",
-                    },
-                )
-            ]
-            if not (sp_ok and rv_ok):
-                return html.Div([
-                    html.Span(
-                        "Fehler: Vektortabelle der Firmware ist ungültig — "
-                        "der Bootloader würde die Applikation nicht starten.",
-                        style={"color": "var(--err-strong)", "fontWeight": "600"},
-                    ),
-                    *vec_lines,
-                    html.Div(
-                        "Mögliche Ursache: Firmware nicht für die korrekte Startadresse "
-                        f"(0x{first_addr:08X}) kompiliert. Flash wird nicht durchgeführt.",
-                        style={"fontSize": "11px", "color": "var(--text-muted)", "marginTop": "4px"},
-                    ),
-                ])
+		# Session- und Transport-Einstellungen
+		sessionSettings = openblt.BltSessionSettingsXcpV10()
+		sessionSettings.timeoutT4 = 60000									# Erase-Timeout 60 s fuer grosse Flash-Bereiche
 
-        total_bytes = sum(seg_len for _, _, seg_len in segments)
+		transportSettings = openblt.BltTransportSettingsXcpV10Can()
+		transportSettings.deviceName = deviceName
+		transportSettings.deviceChannel = deviceChannel
+		transportSettings.baudrate = baudrate
+		transportSettings.transmitId = transmitId							# Host -> Bootloader
+		transportSettings.receiveId = receiveId								# Bootloader -> Host
+		transportSettings.useExtended = 0
+		transportSettings.brsBaudrate = 0
 
-        session_settings = openblt.BltSessionSettingsXcpV10()
-        session_settings.timeoutT4 = 60000  # erase timeout 60 s for large flash regions
+		# Verbinden: init EINMAL, dann session_start in enger Schleife wiederholen
+		# BootCommander macht genau das, init/terminate werden nie pro Versuch aufgerufen.
+		openblt.session_init(
+			openblt.BLT_SESSION_XCP_V10, sessionSettings,
+			openblt.BLT_TRANSPORT_XCP_V10_CAN, transportSettings,
+		)
+		try:
+			deadline = time.monotonic() + _CONNECT_TIMEOUT
+			connected = False
+			while time.monotonic() < deadline:
+				if openblt.session_start() == openblt.BLT_RESULT_OK:
+					connected = True
+					break
+				time.sleep(0.02)											# 20 ms zwischen den Versuchen, wie BootCommander
 
-        transport_settings = openblt.BltTransportSettingsXcpV10Can()
-        transport_settings.deviceName    = device_name
-        transport_settings.deviceChannel = device_channel
-        transport_settings.baudrate      = baudrate
-        transport_settings.transmitId    = transmit_id  # host → bootloader
-        transport_settings.receiveId     = receive_id   # bootloader → host
-        transport_settings.useExtended   = 0
-        transport_settings.brsBaudrate   = 0
+			if not connected:
+				return html.Span(
+					f"Fehler: Bootloader nach {_CONNECT_TIMEOUT} s nicht erreichbar. "
+					"Bitte Ger\u00e4t innerhalb des Zeitfensters in den Bootloader-Modus versetzen "
+					"(Reset / Power-Cycle).",
+					style={"color": "var(--err-strong)"},
+				)
 
-        # ── Connect: init ONCE, then retry session_start in a tight loop ────────────
-        # BootCommander does exactly this – it never calls init/terminate per retry.
-        openblt.session_init(
-            openblt.BLT_SESSION_XCP_V10, session_settings,
-            openblt.BLT_TRANSPORT_XCP_V10_CAN, transport_settings,
-        )
-        try:
-            deadline = time.monotonic() + _CONNECT_TIMEOUT
-            connected = False
-            while time.monotonic() < deadline:
-                if openblt.session_start() == openblt.BLT_RESULT_OK:
-                    connected = True
-                    break
-                time.sleep(0.02)  # 20 ms between attempts – same as BootCommander
+			try:
+				segmentInfo = []
 
-            if not connected:
-                return html.Span(
-                    f"Fehler: Bootloader nach {_CONNECT_TIMEOUT} s nicht erreichbar. "
-                    "Bitte Gerät innerhalb des Zeitfensters in den Bootloader-Modus versetzen "
-                    "(Reset / Power-Cycle).",
-                    style={"color": "var(--err-strong)"},
-                )
+				# Durchlauf 1: ALLE Segmente loeschen, bevor irgendetwas geschrieben wird
+				# Entspricht der Reihenfolge von BootCommander: erst alle Erases, dann alle Writes.
+				# Der OpenBLT-Bootloader bildet die Valid-App-Checksumme ueber den gesamten
+				# programmierten Adressbereich; abwechselndes Loeschen und Schreiben fuehrt
+				# dazu, dass die Checksumme ueber einen unvollstaendigen Bereich berechnet wird.
+				eraseDone = 0
+				_setState(phase="erasing", eraseDone=0, eraseTotal=totalBytes)
+				for segData, segAddr, segLen in segments:
+					remaining = segLen
+					addr = segAddr
+					while remaining > 0:
+						chunk = min(remaining, _ERASE_CHUNK)
+						if openblt.session_clear_memory(addr, chunk) != openblt.BLT_RESULT_OK:
+							return html.Span(
+								f"Fehler: Flash-L\u00f6schung fehlgeschlagen (Adresse 0x{addr:08X}).",
+								style={"color": "var(--err-strong)"},
+							)
+						addr += chunk
+						remaining -= chunk
+						eraseDone += chunk
+						_setState(eraseDone=eraseDone)
 
-            try:
-                segment_info = []
+				# Durchlauf 2: ALLE Segmente schreiben
+				writeDone = 0
+				_setState(phase="writing", writeDone=0, writeTotal=totalBytes)
+				for segData, segAddr, segLen in segments:
+					remaining = segLen
+					addr = segAddr
+					offset = 0
+					while remaining > 0:
+						chunk = min(remaining, _WRITE_CHUNK)
+						if openblt.session_write_data(addr, chunk, segData[offset:offset + chunk]) != openblt.BLT_RESULT_OK:
+							return html.Span(
+								f"Fehler: Schreiben fehlgeschlagen (Adresse 0x{addr:08X}).",
+								style={"color": "var(--err-strong)"},
+							)
+						addr += chunk
+						offset += chunk
+						remaining -= chunk
+						writeDone += chunk
+						_setState(writeDone=writeDone)
+					segmentInfo.append((segAddr, segAddr + segLen - 1, segLen))
 
-                # ── Pass 1: erase ALL segments before writing any ──────────────────
-                # Matches BootCommander's sequence: all erases first, then all writes.
-                # The OpenBLT bootloader builds its valid-app checksum based on the
-                # full programmed address range; interleaving erases with writes causes
-                # it to compute the checksum over an incomplete range.
-                erase_done = 0
-                _set_state(phase="erasing", erase_done=0, erase_total=total_bytes)
-                for seg_data, seg_addr, seg_len in segments:
-                    remaining = seg_len
-                    addr = seg_addr
-                    while remaining > 0:
-                        chunk = min(remaining, _ERASE_CHUNK)
-                        if openblt.session_clear_memory(addr, chunk) != openblt.BLT_RESULT_OK:
-                            return html.Span(
-                                f"Fehler: Flash-Löschung fehlgeschlagen (Adresse 0x{addr:08X}).",
-                                style={"color": "var(--err-strong)"},
-                            )
-                        addr       += chunk
-                        remaining  -= chunk
-                        erase_done += chunk
-                        _set_state(erase_done=erase_done)
+				# Erfolgsmeldung mit Segmentuebersicht
+				segLines = [
+					html.Div(
+						f"  Segment {j + 1}: 0x{a0:08X} \u2013 0x{a1:08X}  ({ln} Bytes)",
+						style={"fontFamily": "monospace", "fontSize": "11px", "color": "var(--text-muted)"},
+					)
+					for j, (a0, a1, ln) in enumerate(segmentInfo)
+				]
+				return html.Div([
+					html.Span(
+						f"Firmware erfolgreich \u00fcbertragen!  "
+						f"Datei: {filename} \u00b7 {segCount} Segment(e) \u00b7 {totalBytes} Bytes",
+						style={"color": "var(--ok-alt)", "fontWeight": "600"},
+					),
+					html.Div(segLines, style={"marginTop": "4px"}),
+					*vecLines,
+					html.Div(
+						"Das Ger\u00e4t wird via PROGRAM_RESET automatisch neu gestartet. "
+						"Falls die Applikation nicht l\u00e4uft: Ger\u00e4t manuell neu starten (Power-Cycle).",
+						style={"fontSize": "11px", "color": "var(--text-muted)", "marginTop": "4px"},
+					),
+				])
 
-                # ── Pass 2: write ALL segments ────────────────────────────────────
-                write_done = 0
-                _set_state(phase="writing", write_done=0, write_total=total_bytes)
-                for seg_data, seg_addr, seg_len in segments:
-                    remaining = seg_len
-                    addr      = seg_addr
-                    offset    = 0
-                    while remaining > 0:
-                        chunk = min(remaining, _WRITE_CHUNK)
-                        if openblt.session_write_data(
-                            addr, chunk, seg_data[offset:offset + chunk]
-                        ) != openblt.BLT_RESULT_OK:
-                            return html.Span(
-                                f"Fehler: Schreiben fehlgeschlagen (Adresse 0x{addr:08X}).",
-                                style={"color": "var(--err-strong)"},
-                            )
-                        addr       += chunk
-                        offset     += chunk
-                        remaining  -= chunk
-                        write_done += chunk
-                        _set_state(write_done=write_done)
-                    segment_info.append((seg_addr, seg_addr + seg_len - 1, seg_len))
+			finally:
+				openblt.session_stop()
+				# Dem PCAN-Controller Zeit geben, den PROGRAM_RESET-Frame (0xCF) wirklich zu
+				# senden, bevor session_terminate() den CAN-Kanal schliesst und den TX-Puffer
+				# verwirft. Ohne diese Pause wird der Frame eingereiht, aber nie gesendet.
+				time.sleep(0.2)
 
-                seg_lines = [
-                    html.Div(
-                        f"  Segment {j + 1}: 0x{a0:08X} – 0x{a1:08X}  ({ln} Bytes)",
-                        style={"fontFamily": "monospace", "fontSize": "11px", "color": "var(--text-muted)"},
-                    )
-                    for j, (a0, a1, ln) in enumerate(segment_info)
-                ]
-                return html.Div([
-                    html.Span(
-                        f"Firmware erfolgreich übertragen!  "
-                        f"Datei: {filename} · {seg_count} Segment(e) · {total_bytes} Bytes",
-                        style={"color": "var(--ok-alt)", "fontWeight": "600"},
-                    ),
-                    html.Div(seg_lines, style={"marginTop": "4px"}),
-                    *vec_lines,
-                    html.Div(
-                        "Das Gerät wird via PROGRAM_RESET automatisch neu gestartet. "
-                        "Falls die Applikation nicht läuft: Gerät manuell neu starten (Power-Cycle).",
-                        style={"fontSize": "11px", "color": "var(--text-muted)", "marginTop": "4px"},
-                    ),
-                ])
+		finally:
+			openblt.session_terminate()
 
-            finally:
-                openblt.session_stop()
-                # Give the PCAN controller time to actually transmit the PROGRAM_RESET frame
-                # (0xCF) before session_terminate() closes the CAN channel and discards its
-                # TX buffer.  Without this pause the frame is queued but never sent.
-                time.sleep(0.2)
+	finally:
+		openblt.firmware_terminate()
+#-----------------------------------------------------------------------
 
-        finally:
-            openblt.session_terminate()
+# Hintergrund-Thread: Flash ausfuehren, CAN-Bus wiederherstellen, Zustand auf done setzen
+#-----------------------------------------------------------------------
+def _flashThread (tmpPath, filename, canManager, cfg, latest, lock, deviceName, deviceChannel, transmitId, receiveId):
+	try:
+		result = _runFlash(
+			tmpPath, filename,
+			deviceName, deviceChannel,
+			cfg.bitrate, transmitId, receiveId,
+		)
+	except Exception as exc:
+		result = html.Span(f"Unerwarteter Fehler: {exc}", style={"color": "var(--err-strong)"})
+	finally:
+		# Dem Steuergeraet Zeit geben, die Checksumme zu speichern, neu zu starten und die Applikation zu starten
+		time.sleep(3.0)
+		try:
+			canManager.start(cfg, latest, lock)
+		except Exception:
+			pass
+		try:
+			os.unlink(tmpPath)
+		except OSError:
+			pass
 
-    finally:
-        openblt.firmware_terminate()
+	_setState(running=False, phase="done", result=result)
+#-----------------------------------------------------------------------
 
+# Callbacks fuer Firmware-Upload und Fortschrittsanzeige registrieren
+#-----------------------------------------------------------------------
+def registerFirmwareUploadCallback (app, canManager, latest, lock):
+	# Hochgeladene Firmware pruefen und Flash-Thread starten
+	@app.callback(
+		Output("bootloader_status", "children"),
+		Output("flash_poll", "disabled"),
+		Output("firmware_upload", "contents"),
+		Output("firmware_upload", "filename"),
+		Input("firmware_upload", "contents"),
+		State("firmware_upload", "filename"),
+		State("bootloader_rx_id", "value"),
+		State("bootloader_tx_id", "value"),
+		prevent_initial_call=True,
+	)
+	def _flashFirmware (contents, filename, rxIdStr, txIdStr):
+		if contents is None:
+			return html.Span(
+				"Bitte zuerst eine Firmware-Datei ausw\u00e4hlen.",
+				style={"color": "var(--accent)"},
+			), True, None, None
 
-def _flash_thread(tmp_path, filename, can_manager, cfg, latest, lock,
-                  device_name, device_channel, transmit_id, receive_id):
-    """Background thread: runs flash, restores CAN bus, then marks state as done."""
-    try:
-        result = _run_flash(
-            tmp_path, filename,
-            device_name, device_channel,
-            cfg.bitrate, transmit_id, receive_id,
-        )
-    except Exception as exc:
-        result = html.Span(f"Unerwarteter Fehler: {exc}", style={"color": "var(--err-strong)"})
-    finally:
-        # Give the target time to store the checksum, reset, and start the app.
-        time.sleep(3.0)
-        try:
-            can_manager.start(cfg, latest, lock)
-        except Exception:
-            pass
-        try:
-            os.unlink(tmp_path)
-        except OSError:
-            pass
+		if _flashState["running"]:
+			return html.Span(
+				"Flash-Vorgang l\u00e4uft bereits \u2013 bitte warten.",
+				style={"color": "var(--accent)"},
+			), True, None, None
 
-    _set_state(running=False, phase="done", result=result)
+		# CAN-IDs lesen
+		try:
+			transmitId = _parseCanId(rxIdStr)								# Host sendet an Bootloader-RX-ID
+			receiveId = _parseCanId(txIdStr)								# Host empfaengt von Bootloader-TX-ID
+		except (ValueError, TypeError):
+			return html.Span("Fehler: Ung\u00fcltige CAN-ID eingegeben.", style={"color": "var(--err-strong)"}), True, None, None
 
+		if not canManager.isRunning:
+			return html.Span(
+				"Fehler: CAN-Bus nicht verbunden. Bitte zuerst im Konfigurationsfeld verbinden.",
+				style={"color": "var(--err-strong)"},
+			), True, None, None
 
-def register_firmware_upload_callback(app, can_manager, latest, lock):
+		# OpenBLT-Geraet zum verbundenen Adapter ermitteln
+		cfg = canManager.config
+		deviceName, deviceChannel = _openbltDevice(cfg.interface, cfg.channel)
 
-    @app.callback(
-        Output("bootloader_status", "children"),
-        Output("flash_poll", "disabled"),
-        Output("firmware_upload", "contents"),
-        Output("firmware_upload", "filename"),
-        Input("firmware_upload", "contents"),
-        State("firmware_upload", "filename"),
-        State("bootloader_rx_id", "value"),
-        State("bootloader_tx_id", "value"),
-        prevent_initial_call=True,
-    )
-    def _flash_firmware(contents, filename, rx_id_str, tx_id_str):
-        if contents is None:
-            return html.Span(
-                "Bitte zuerst eine Firmware-Datei auswählen.",
-                style={"color": "var(--accent)"},
-            ), True, None, None
+		if not deviceName:
+			return html.Span(
+				f"Fehler: Interface '{cfg.interface}' wird von OpenBLT nicht unterst\u00fctzt "
+				f"(unterst\u00fctzt: {', '.join(_INTERFACE_MAP.keys())}).",
+				style={"color": "var(--err-strong)"},
+			), True, None, None
 
-        if _flash_state["running"]:
-            return html.Span(
-                "Flash-Vorgang läuft bereits – bitte warten.",
-                style={"color": "var(--accent)"},
-            ), True, None, None
+		# Datei dekodieren und temporaer speichern
+		try:
+			_, b64 = contents.split(",", 1)
+			fileBytes = base64.b64decode(b64)
+		except Exception as exc:
+			return html.Span(f"Fehler beim Lesen der Datei: {exc}", style={"color": "var(--err-strong)"}), True, None, None
 
-        try:
-            transmit_id = _parse_can_id(rx_id_str)  # host transmits to bootloader RX ID
-            receive_id  = _parse_can_id(tx_id_str)  # host receives from bootloader TX ID
-        except (ValueError, TypeError):
-            return html.Span("Fehler: Ungültige CAN-ID eingegeben.", style={"color": "var(--err-strong)"}), True, None, None
+		try:
+			with tempfile.NamedTemporaryFile(suffix=".srec", delete=False) as f:
+				tmpPath = f.name
+				f.write(fileBytes)
+		except Exception as exc:
+			return html.Span(f"Fehler beim Speichern der Datei: {exc}", style={"color": "var(--err-strong)"}), True, None, None
 
-        if not can_manager.is_running:
-            return html.Span(
-                "Fehler: CAN-Bus nicht verbunden. Bitte zuerst im Konfigurationsfeld verbinden.",
-                style={"color": "var(--err-strong)"},
-            ), True, None, None
+		# Alle Pruefungen bestanden, Zustand initialisieren und an den Hintergrund-Thread uebergeben
+		_setState(
+			running=True, phase="connecting", result=None,
+			eraseDone=0, eraseTotal=1, writeDone=0, writeTotal=1,
+		)
 
-        cfg = can_manager.config
-        device_name, device_channel = _openblt_device(cfg.interface, cfg.channel)
+		# OpenBLT braucht exklusiven Zugriff, Empfangsthread vorher anhalten
+		canManager.stop()
+		time.sleep(0.5)
 
-        if not device_name:
-            return html.Span(
-                f"Fehler: Interface '{cfg.interface}' wird von OpenBLT nicht unterstützt "
-                f"(unterstützt: {', '.join(_INTERFACE_MAP.keys())}).",
-                style={"color": "var(--err-strong)"},
-            ), True, None, None
+		threading.Thread(
+			target=_flashThread,
+			args=(tmpPath, filename, canManager, cfg, latest, lock, deviceName, deviceChannel, transmitId, receiveId),
+			daemon=True,
+		).start()
 
-        try:
-            _, b64 = contents.split(",", 1)
-            file_bytes = base64.b64decode(b64)
-        except Exception as exc:
-            return html.Span(f"Fehler beim Lesen der Datei: {exc}", style={"color": "var(--err-strong)"}), True, None, None
+		# Vorherigen Fehlertext loeschen, Poll-Intervall aktivieren
+		return "", False, None, None
 
-        try:
-            with tempfile.NamedTemporaryFile(suffix=".srec", delete=False) as f:
-                tmp_path = f.name
-                f.write(file_bytes)
-        except Exception as exc:
-            return html.Span(f"Fehler beim Speichern der Datei: {exc}", style={"color": "var(--err-strong)"}), True, None, None
+	# Fortschritt waehrend des Flash-Vorgangs anzeigen
+	@app.callback(
+		Output("flash_progress_area", "children"),
+		Output("flash_poll", "disabled", allow_duplicate=True),
+		Input("flash_poll", "n_intervals"),
+		prevent_initial_call=True,
+	)
+	def _pollFlashProgress (_):
+		phase = _flashState["phase"]
+		if phase == "idle":
+			raise PreventUpdate
+		if phase == "done":
+			return _flashState["result"], True
 
-        # All checks passed – initialise state and hand off to background thread
-        _set_state(
-            running=True, phase="connecting", result=None,
-            erase_done=0, erase_total=1, write_done=0, write_total=1,
-        )
-
-        # OpenBLT needs exclusive access – pause the CAN receive thread first.
-        can_manager.stop()
-        time.sleep(0.5)
-
-        threading.Thread(
-            target=_flash_thread,
-            args=(tmp_path, filename, can_manager, cfg, latest, lock,
-                  device_name, device_channel, transmit_id, receive_id),
-            daemon=True,
-        ).start()
-
-        # Clear previous error text; enable poll interval
-        return "", False, None, None
-
-    @app.callback(
-        Output("flash_progress_area", "children"),
-        Output("flash_poll", "disabled", allow_duplicate=True),
-        Input("flash_poll", "n_intervals"),
-        prevent_initial_call=True,
-    )
-    def _poll_flash_progress(_):
-        phase = _flash_state["phase"]
-        if phase == "idle":
-            raise PreventUpdate
-        if phase == "done":
-            return _flash_state["result"], True
-        return _progress_bar_ui(), False
+		return _progressBarUi(), False
+#-----------------------------------------------------------------------

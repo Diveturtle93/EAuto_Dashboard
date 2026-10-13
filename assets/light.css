@@ -17,6 +17,10 @@ html.theme-light {
 
     /* ── App-specific tokens – change these to switch color scheme ── */
 
+    /* Plotly chart axes (background is transparent, card bg shows through) */
+    --chart-text: #2D5491;   /* axis labels / font */
+    --chart-grid: #C5D0DF;   /* grid lines / zero lines */
+
     /* Backgrounds */
     --bg-page:         #FFFFFF;   /* page / input background */
     --bg-card:         #F0F4F8;   /* card / panel background */
@@ -125,13 +129,81 @@ html.theme-light ::-webkit-scrollbar-track { background: var(--bg-page); }
 html.theme-light ::-webkit-scrollbar-thumb { background: var(--border); border-radius: 3px; }
 html.theme-light ::-webkit-scrollbar-thumb:hover { background: var(--accent); }
 
-/* ── Buttons (überschreiben dark.css-Variablen via html.theme-light) ─── */
+/* ── Buttons ───────────────────────────────────────────────── */
+html.theme-light button.btn {
+    font-size:     13px;
+    padding:       8px 20px;
+    border-radius: 6px;
+    font-weight:   700;
+    font-family:   inherit;
+    cursor:        pointer;
+    white-space:   nowrap;
+    border:        1px solid var(--accent);
+    background:    var(--accent-bg);
+    color:         var(--accent);
+    transition:    background 0.15s, color 0.15s;
+}
+html.theme-light button.btn:hover:not(:disabled) {
+    background: var(--accent);
+    color:      var(--bg-page);
+}
+html.theme-light button.btn:disabled {
+    border-color: var(--border-faint);
+    background:   var(--bg-subtle);
+    color:        var(--text-muted);
+    cursor:       not-allowed;
+}
+
+html.theme-light button.btn-danger {
+    font-size:     13px;
+    padding:       8px 20px;
+    border-radius: 6px;
+    font-weight:   700;
+    font-family:   inherit;
+    cursor:        pointer;
+    white-space:   nowrap;
+    border:        1px solid var(--err-strong);
+    background:    var(--err-bg-alt);
+    color:         var(--err-text);
+    transition:    background 0.15s, color 0.15s;
+}
+html.theme-light button.btn-danger:hover {
+    background: var(--err-strong);
+    color:      var(--bg-page);
+}
+
 html.theme-light button.btn-success {
-    border-color: var(--ok-alt);
-    background:   var(--ok-alt-bg);
-    color:        var(--ok-alt);
+    font-size:     13px;
+    padding:       8px 20px;
+    border-radius: 6px;
+    font-weight:   700;
+    font-family:   inherit;
+    cursor:        pointer;
+    white-space:   nowrap;
+    border:        1px solid var(--ok-alt);
+    background:    var(--ok-alt-bg);
+    color:         var(--ok-alt);
+    transition:    background 0.15s, color 0.15s;
 }
 html.theme-light button.btn-success:hover {
     background: var(--ok-alt);
     color:      var(--bg-page);
+}
+
+/* ── Cards ─────────────────────────────────────────────────── */
+html.theme-light .card {
+    background:    var(--bg-card);
+    border-radius: 10px;
+    box-shadow:    0 1px 8px var(--shadow-card);
+    border:        1px solid var(--border);
+    padding:       12px 14px;
+    margin-bottom: 14px;
+}
+html.theme-light .card-sec {
+    font-size:      11px;
+    font-weight:    700;
+    letter-spacing: 0.07em;
+    color:          var(--accent);
+    text-transform: uppercase;
+    margin-bottom:  8px;
 }

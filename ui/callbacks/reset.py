@@ -1,15 +1,61 @@
-from dash import Output, Input
+#-----------------------------------------------------------------------
+# Titel		:	reset.py
+#-----------------------------------------------------------------------
+# Sprache	:	Python
+# Datum		:	16.06.2026
+# Version	:	1.0
+# Autor		:	Diveturtle93
+# Projekt	:	EAuto_Dashboard
+# Quelle	:
+#-----------------------------------------------------------------------
 
+# Einfuegen der standard Module
+#-----------------------------------------------------------------------
 
-def register_reset_callback(app, lock, latest):
-    @app.callback(
-        Output("reset_dummy", "children"),
-        Input("btn_reset", "n_clicks"),
-        prevent_initial_call=True,
-    )
-    def _reset_data(_):
-        with lock:
-            latest["last_rx_ms"] = 0
-        return ""
+#-----------------------------------------------------------------------
 
-    return _reset_data
+# Einfuegen der externen Module
+#-----------------------------------------------------------------------
+from dash import Input, Output
+#-----------------------------------------------------------------------
+
+# Einfuegen der eigenen Module
+#-----------------------------------------------------------------------
+
+#-----------------------------------------------------------------------
+
+# Definiere Debug-Symbole
+#-----------------------------------------------------------------------
+DEBUG_RESET										= False
+#-----------------------------------------------------------------------
+
+# Version definieren
+#-----------------------------------------------------------------------
+RESET_MAJOR										= 1
+RESET_MINOR										= 0
+RESET_PATCH										= 0
+RESET_DEV										= 0
+#-----------------------------------------------------------------------
+
+# Variablen definieren
+#-----------------------------------------------------------------------
+
+#-----------------------------------------------------------------------
+
+# Callback fuer den Reset-Button registrieren
+#-----------------------------------------------------------------------
+def registerResetCallback (app, lock, latest):
+	# Datenspeicher zuruecksetzen
+	@app.callback(
+		Output("reset_dummy", "children"),
+		Input("btn_reset", "n_clicks"),
+		prevent_initial_call=True,
+	)
+	def _resetData (_):
+		with lock:
+			latest["last_rx_ms"] = 0
+
+		return ""
+
+	return _resetData
+#-----------------------------------------------------------------------

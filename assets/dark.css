@@ -17,6 +17,10 @@
 
     /* ── App-specific tokens – change these to switch color scheme ── */
 
+    /* Plotly chart axes (background is transparent, card bg shows through) */
+    --chart-text: #9099a8;   /* axis labels / font */
+    --chart-grid: #252836;   /* grid lines / zero lines */
+
     /* Backgrounds */
     --bg-page:         #0d0f14;   /* page / input background */
     --bg-card:         #161922;   /* card / panel background */
@@ -184,4 +188,22 @@ button.btn-success {
 button.btn-success:hover {
     background: var(--ok-alt);
     color:      var(--bg-page);
+}
+
+/* ── Cards ─────────────────────────────────────────────────── */
+.card {
+    background:    var(--bg-card);
+    border-radius: 10px;
+    box-shadow:    0 1px 8px var(--shadow-card);
+    border:        1px solid var(--border);
+    padding:       12px 14px;
+    margin-bottom: 14px;
+}
+.card-sec {
+    font-size:      11px;
+    font-weight:    700;
+    letter-spacing: 0.07em;
+    color:          var(--accent);
+    text-transform: uppercase;
+    margin-bottom:  8px;
 }

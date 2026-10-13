@@ -1,9 +1,49 @@
-from .cell_voltage_card import build_cell_voltage_card
-from .cell_temperature_card import build_cell_temperature_card
-from .bms_outputs_card import build_bms_outputs_card
+#-----------------------------------------------------------------------
+# Titel		:	__init__.py
+#-----------------------------------------------------------------------
+# Sprache	:	Python
+# Datum		:	06.07.2026
+# Version	:	1.0
+# Autor		:	Diveturtle93
+# Projekt	:	EAuto_Dashboard
+# Quelle	:
+#-----------------------------------------------------------------------
 
+# Einfuegen der standard Module
+#-----------------------------------------------------------------------
+
+#-----------------------------------------------------------------------
+
+# Einfuegen der externen Module
+#-----------------------------------------------------------------------
+
+#-----------------------------------------------------------------------
+
+# Einfuegen der eigenen Module
+#-----------------------------------------------------------------------
+from .bms_outputs_card import buildBmsOutputsCard
+from .cell_temperature_card import buildCellTemperatureCard
+from .cell_voltage_card import buildCellVoltageCard
+#-----------------------------------------------------------------------
+
+# Definiere Debug-Symbole
+#-----------------------------------------------------------------------
+DEBUG_CARDS										= False
+#-----------------------------------------------------------------------
+
+# Version definieren
+#-----------------------------------------------------------------------
+CARDS_MAJOR										= 1
+CARDS_MINOR										= 0
+CARDS_PATCH										= 0
+CARDS_DEV										= 0
+#-----------------------------------------------------------------------
+
+# Variablen definieren
+#-----------------------------------------------------------------------
 __all__ = [
-    "build_cell_voltage_card",
-    "build_cell_temperature_card",
-    "build_bms_outputs_card",
+	"buildCellVoltageCard",
+	"buildCellTemperatureCard",
+	"buildBmsOutputsCard",
 ]
+#-----------------------------------------------------------------------

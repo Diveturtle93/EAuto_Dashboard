@@ -1,11 +1,52 @@
+#-----------------------------------------------------------------------
+# Titel		:	cell_data_tab.py
+#-----------------------------------------------------------------------
+# Sprache	:	Python
+# Datum		:	29.06.2026
+# Version	:	1.0
+# Autor		:	Diveturtle93
+# Projekt	:	EAuto_Dashboard
+# Quelle	:
+#-----------------------------------------------------------------------
+
+# Einfuegen der standard Module
+#-----------------------------------------------------------------------
+
+#-----------------------------------------------------------------------
+
+# Einfuegen der externen Module
+#-----------------------------------------------------------------------
 from dash import html
+#-----------------------------------------------------------------------
 
-from ui.cards import build_cell_voltage_card, build_cell_temperature_card
+# Einfuegen der eigenen Module
+#-----------------------------------------------------------------------
+from ui.cards import buildCellTemperatureCard, buildCellVoltageCard
+#-----------------------------------------------------------------------
 
+# Definiere Debug-Symbole
+#-----------------------------------------------------------------------
+DEBUG_CELL_DATA_TAB								= False
+#-----------------------------------------------------------------------
 
-def build_cell_data_tab():
-    """Build the complete 'Zellen' tab content."""
-    return html.Div(style={"paddingTop": "14px"}, children=[
-        build_cell_voltage_card(),
-        build_cell_temperature_card(),
-    ])
+# Version definieren
+#-----------------------------------------------------------------------
+CELL_DATA_TAB_MAJOR								= 1
+CELL_DATA_TAB_MINOR								= 0
+CELL_DATA_TAB_PATCH								= 0
+CELL_DATA_TAB_DEV								= 0
+#-----------------------------------------------------------------------
+
+# Variablen definieren
+#-----------------------------------------------------------------------
+
+#-----------------------------------------------------------------------
+
+# Kompletten Inhalt des Tabs "Zellen" aufbauen
+#-----------------------------------------------------------------------
+def buildCellDataTab ():
+	return html.Div(style={"paddingTop": "14px"}, children=[
+		buildCellVoltageCard(),
+		buildCellTemperatureCard(),
+	])
+#-----------------------------------------------------------------------
